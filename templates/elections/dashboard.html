@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Eleições{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Eleições</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="electionsApp()" x-init="init()">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6" title="Dados históricos de eleições e metas de votos para 2026">Dados Eleitorais</h1>
+
+    <!-- Metas de Votos -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <h3 class="text-lg font-semibold mb-4" title="Metas definidas para cada região e acompanhamento do progresso">Metas de Votos por Região</h3>
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th title="Nome da região ou município">Região</th>
+                        <th class="text-right" title="Meta de votos definida para a eleição de 2026">Meta</th>
+                        <th class="text-right" title="Estimativa atual de votos baseada nos contatos e engajamento">Estimativa Atual</th>
+                        <th class="text-right" title="Percentual atingido da meta (estimativa ÷ meta × 100)">Progresso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="g in goals" :key="g.id">
+                        <tr>
+                            <td class="font-medium" x-text="g.region_name || g.city_name || g.level"></td>
+                            <td class="text-right" x-text="(g.target_votes || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right" x-text="(g.current_estimate || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right">
+                                <span x-text="(g.progress_percentage || 0) + '%'"
+                                      :class="g.progress_percentage >= 100 ? 'text-green-600 font-bold' : 'text-orange-600'"></span>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="goals.length === 0">
+                        <td colspan="4" class="text-center text-gray-400 py-8">Nenhuma meta cadastrada</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function electionsApp() {
+    return {
+        goals: [],
+        async init() {
+            try {
+                const resp = await API.get('/api/v1/elections/goals/');
+                this.goals = resp.results || resp;
+            } catch (e) { this.goals = []; }
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,164 @@
+/* CRM Eleitoral Sorgatto 26 - Estilos customizados */
+
+/* Mapa SVG */
+#map-container {
+    position: relative;
+    overflow: hidden;
+}
+
+#map-container svg {
+    display: block;
+}
+
+/* Hover regioes/cidades - GPU accelerated, sem reflow */
+path.region, path.city {
+    will-change: fill-opacity, stroke, stroke-width;
+    transition: none;
+}
+
+path.region:hover {
+    fill-opacity: 1;
+    stroke: #002776;
+    stroke-width: 2.5;
+}
+
+path.city:hover {
+    fill: #4d81ce;
+    fill-opacity: 1;
+    stroke-width: 2;
+}
+
+/* Tooltip do mapa - GPU accelerated */
+.map-tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: white;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 1000;
+    max-width: 240px;
+    line-height: 1.5;
+    will-change: transform, opacity;
+    opacity: 0;
+}
+
+.map-tooltip .tooltip-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #002776;
+}
+
+.map-tooltip .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.map-tooltip .tooltip-label {
+    color: #6b7280;
+}
+
+.map-tooltip .tooltip-value {
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Cards hover */
+.stat-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+/* Tabelas */
+.data-table {
+    width: 100%;
+    font-size: 0.875rem;
+    border-collapse: collapse;
+}
+
+.data-table thead th {
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    color: #4b5563;
+    background: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.data-table tfoot td {
+    padding: 0.5rem 0.75rem;
+}
+
+.data-table tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    white-space: nowrap;
+}
+
+.data-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.data-table tbody tr.clickable {
+    cursor: pointer;
+}
+
+/* Sidebar ativa */
+.sidebar-link.active {
+    background: #e6edf8;
+    color: #002776;
+    font-weight: 600;
+}
+
+/* Scrollbar customizada */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+/* Pulso vermelho para demandas em atraso no mapa */
+@keyframes pulse-red {
+    0%, 100% { fill-opacity: 0.85; }
+    50% { fill-opacity: 0.4; }
+}
+
+path.pulse-overdue {
+    animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+/* Animacao dash-offset para rotas planejadas */
+@keyframes dash-march {
+    to { stroke-dashoffset: -30; }
+}
+
+path.itinerary-animated {
+    animation: dash-march 1.2s linear infinite;
+}
+
+/* Badge/Chip */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Empresas Parceiras{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Empresas Parceiras</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="companiesApp()" x-init="init()">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800" title="Empresas que apoiam ou colaboram com a campanha">Empresas Parceiras</h1>
+        <a href="/admin/contacts/companypartner/add/" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium" title="Cadastrar uma nova empresa parceira">
+            + Nova Empresa
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th title="Razão social ou nome da empresa">Empresa</th>
+                        <th title="Município sede da empresa">Cidade</th>
+                        <th title="Setor de atuação da empresa">Setor</th>
+                        <th class="text-right" title="Número estimado de funcionários">Funcionarios</th>
+                        <th title="Tipo de parceria: financeira, logística, voluntariado, etc.">Tipo Parceria</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in companies" :key="c.id">
+                        <tr>
+                            <td class="font-medium" x-text="c.name"></td>
+                            <td x-text="c.city_name || '-'" class="text-gray-500"></td>
+                            <td x-text="c.sector || '-'"></td>
+                            <td class="text-right" x-text="c.employees_count || 0"></td>
+                            <td x-text="c.partnership_type || '-'"></td>
+                        </tr>
+                    </template>
+                    <tr x-show="companies.length === 0">
+                        <td colspan="5" class="text-center text-gray-400 py-8">Nenhuma empresa cadastrada</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function companiesApp() {
+    return {
+        companies: [],
+        async init() {
+            try {
+                const resp = await API.get('/api/v1/contacts/companies/');
+                this.companies = resp.results || resp;
+            } catch (e) { this.companies = []; }
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,366 @@
+{% extends 'base.html' %}
+
+{% block title %}Conteúdos{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Conteúdos</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="contentsApp()" x-init="init()">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <h1 class="text-2xl font-bold text-gray-800" title="Gerenciamento de materiais de comunicação vinculados às demandas de campo">Gestão de Conteúdos</h1>
+        <button @click="openNew()" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium" title="Criar um novo material de comunicação">
+            + Novo Conteúdo
+        </button>
+    </div>
+
+    <!-- Metricas -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-gray-800" x-text="stats.total"></div>
+            <div class="text-xs text-gray-500" title="Total de conteúdos cadastrados">Total</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-yellow-600" x-text="stats.pending"></div>
+            <div class="text-xs text-gray-500" title="Conteúdos aguardando produção">Pendentes</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-blue-600" x-text="stats.in_production"></div>
+            <div class="text-xs text-gray-500" title="Conteúdos em fase de criação ou edição">Em Produção</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-green-600" x-text="stats.published"></div>
+            <div class="text-xs text-gray-500" title="Conteúdos já publicados e disponíveis">Publicados</div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex flex-wrap gap-2 mb-4">
+        <select x-model="filters.status" @change="loadData()" class="text-sm border rounded-lg px-3 py-1.5" title="Filtrar por status do conteúdo">
+            <option value="">Todos os status</option>
+            <option value="pending">Pendente</option>
+            <option value="in_production">Em Produção</option>
+            <option value="approved">Aprovado</option>
+            <option value="published">Publicado</option>
+        </select>
+        <select x-model="filters.content_type" @change="loadData()" class="text-sm border rounded-lg px-3 py-1.5" title="Filtrar por tipo de material">
+            <option value="">Todos os tipos</option>
+            <option value="briefing">Briefing</option>
+            <option value="social_post">Post Redes Sociais</option>
+            <option value="whatsapp">Material WhatsApp</option>
+            <option value="photo">Registro Fotográfico</option>
+            <option value="video">Vídeo</option>
+            <option value="press">Nota de Imprensa</option>
+        </select>
+        <select x-model="filters.phase" @change="loadData()" class="text-sm border rounded-lg px-3 py-1.5" title="Filtrar por fase: antes ou depois da ação de campo">
+            <option value="">Todas as fases</option>
+            <option value="before">Antes da ação</option>
+            <option value="after">Depois da ação</option>
+        </select>
+    </div>
+
+    <!-- Lista agrupada por status -->
+    <template x-for="group in groupedContents" :key="group.status">
+        <div class="mb-6" x-show="group.items.length > 0">
+            <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full" :class="statusDotClass(group.status)"></span>
+                <span x-text="statusLabel(group.status)"></span>
+                <span class="text-gray-400 font-normal" x-text="'(' + group.items.length + ')'"></span>
+            </h3>
+            <div class="space-y-3">
+                <template x-for="c in group.items" :key="c.id">
+                    <div class="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-shadow">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1 cursor-pointer" @click="openEdit(c)">
+                                <h4 class="font-semibold text-gray-800" x-text="c.title"></h4>
+                                <p class="text-sm text-gray-500">
+                                    <span x-text="typeLabel(c.content_type)"></span>
+                                    <span class="mx-1">|</span>
+                                    <span x-text="phaseLabel(c.phase)"></span>
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <select :value="c.status" @change="updateStatus(c.id, $event.target.value)"
+                                        class="text-xs border rounded px-2 py-1">
+                                    <option value="pending">Pendente</option>
+                                    <option value="in_production">Em Produção</option>
+                                    <option value="approved">Aprovado</option>
+                                    <option value="published">Publicado</option>
+                                </select>
+                                <button @click="deleteContent(c)" class="text-gray-400 hover:text-red-600 p-1" title="Excluir">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-4 text-xs text-gray-500">
+                            <div x-show="c.task_title">
+                                Demanda: <span class="font-semibold text-gray-700" x-text="c.task_title"></span>
+                            </div>
+                            <div x-show="c.city_name">
+                                Cidade: <span class="font-semibold text-gray-700" x-text="c.city_name"></span>
+                            </div>
+                            <div x-show="c.responsible_name">
+                                Resp: <span class="font-semibold text-gray-700" x-text="c.responsible_name"></span>
+                            </div>
+                            <div x-show="c.due_date">
+                                Prazo: <span class="font-semibold" :class="isOverdue(c) ? 'text-red-600' : 'text-gray-700'" x-text="formatDate(c.due_date)"></span>
+                            </div>
+                            <a x-show="c.publication_url" :href="c.publication_url" target="_blank"
+                               class="text-primary-600 hover:text-primary-800">Ver publicação &rarr;</a>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <div x-show="contents.length === 0" class="text-center text-gray-400 py-12">
+        Nenhum conteúdo cadastrado
+    </div>
+
+    <!-- Modal Criar/Editar Conteúdo -->
+    <div x-show="showModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="showModal = false">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" @click.stop>
+            <h2 class="text-lg font-bold mb-4" x-text="isEditing ? 'Editar Conteúdo' : 'Novo Conteúdo'"></h2>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Título</label>
+                    <input x-model="form.title" type="text" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Tipo</label>
+                        <select x-model="form.content_type" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="briefing">Briefing</option>
+                            <option value="social_post">Post Redes Sociais</option>
+                            <option value="whatsapp">Material WhatsApp</option>
+                            <option value="photo">Registro Fotográfico</option>
+                            <option value="video">Vídeo</option>
+                            <option value="press">Nota de Imprensa</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Fase</label>
+                        <select x-model="form.phase" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="before">Antes da ação</option>
+                            <option value="after">Depois da ação</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Demanda vinculada</label>
+                    <select x-model="form.task" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                        <option value="">Selecione uma demanda</option>
+                        <template x-for="t in tasks" :key="t.id">
+                            <option :value="t.id" x-text="t.title + (t.city_name ? ' (' + t.city_name + ')' : '')"></option>
+                        </template>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Responsável</label>
+                        <select x-model="form.responsible" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="">Nenhum</option>
+                            <template x-for="u in users" :key="u.id">
+                                <option :value="u.id" x-text="u.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Prazo</label>
+                        <input x-model="form.due_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Status</label>
+                    <select x-model="form.status" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                        <option value="pending">Pendente</option>
+                        <option value="in_production">Em Produção</option>
+                        <option value="approved">Aprovado</option>
+                        <option value="published">Publicado</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Descrição</label>
+                    <textarea x-model="form.description" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm mt-1"></textarea>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">URL de publicação</label>
+                    <input x-model="form.publication_url" type="url" placeholder="https://..." class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showModal = false" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button @click="saveContent()" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700" x-text="isEditing ? 'Salvar' : 'Criar Conteúdo'"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function contentsApp() {
+    return {
+        contents: [],
+        filters: { status: '', content_type: '', phase: '' },
+        stats: { total: 0, pending: 0, in_production: 0, published: 0 },
+        showModal: false,
+        isEditing: false,
+        editingId: null,
+        users: [],
+        tasks: [],
+        form: { title: '', content_type: 'briefing', phase: 'before', task: '', responsible: '', status: 'pending', due_date: '', description: '', publication_url: '' },
+
+        async init() {
+            await Promise.all([this.loadData(), this.loadUsers(), this.loadTasks()]);
+        },
+
+        async loadData() {
+            try {
+                let params = [];
+                if (this.filters.status) params.push(`status=${this.filters.status}`);
+                if (this.filters.content_type) params.push(`content_type=${this.filters.content_type}`);
+                if (this.filters.phase) params.push(`phase=${this.filters.phase}`);
+                const qs = params.length ? '?' + params.join('&') : '';
+                const resp = await API.get('/api/v1/campaigns/contents/' + qs);
+                this.contents = resp.results || resp;
+                this.calcStats();
+            } catch (e) { this.contents = []; }
+        },
+
+        async loadUsers() {
+            try { this.users = await API.get('/accounts/api/users/'); } catch (e) { this.users = []; }
+        },
+
+        async loadTasks() {
+            try {
+                const resp = await API.get('/api/v1/campaigns/tasks/?limit=500');
+                this.tasks = resp.results || resp;
+            } catch (e) { this.tasks = []; }
+        },
+
+        calcStats() {
+            this.stats.total = this.contents.length;
+            this.stats.pending = this.contents.filter(c => c.status === 'pending').length;
+            this.stats.in_production = this.contents.filter(c => c.status === 'in_production').length;
+            this.stats.published = this.contents.filter(c => c.status === 'published').length;
+        },
+
+        get groupedContents() {
+            const order = ['pending', 'in_production', 'approved', 'published'];
+            return order.map(s => ({
+                status: s,
+                items: this.contents.filter(c => c.status === s),
+            }));
+        },
+
+        openNew() {
+            this.isEditing = false;
+            this.editingId = null;
+            this.form = { title: '', content_type: 'briefing', phase: 'before', task: '', responsible: '', status: 'pending', due_date: '', description: '', publication_url: '' };
+            this.showModal = true;
+        },
+
+        openEdit(c) {
+            this.isEditing = true;
+            this.editingId = c.id;
+            this.form = {
+                title: c.title,
+                content_type: c.content_type,
+                phase: c.phase,
+                task: c.task || '',
+                responsible: c.responsible || '',
+                status: c.status,
+                due_date: c.due_date || '',
+                description: c.description || '',
+                publication_url: c.publication_url || '',
+            };
+            this.showModal = true;
+        },
+
+        async saveContent() {
+            const data = { ...this.form };
+            if (!data.task) { alert('Selecione uma demanda vinculada'); return; }
+            data.task = parseInt(data.task);
+            data.responsible = data.responsible ? parseInt(data.responsible) : null;
+            if (!data.due_date) data.due_date = null;
+            // Adicionar protocolo se faltou
+            if (data.publication_url && !data.publication_url.match(/^https?:\/\//)) {
+                data.publication_url = 'https://' + data.publication_url;
+            }
+            if (!data.publication_url) data.publication_url = '';
+
+            try {
+                if (this.isEditing) {
+                    await API.put(`/api/v1/campaigns/contents/${this.editingId}/`, data);
+                } else {
+                    await API.post('/api/v1/campaigns/contents/', data);
+                }
+                this.showModal = false;
+                await this.loadData();
+            } catch (e) {
+                console.error('Erro ao salvar conteúdo:', e);
+                if (e.data) {
+                    const msgs = Object.entries(e.data).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n');
+                    alert('Erro:\n' + msgs);
+                } else {
+                    alert('Erro ao salvar conteúdo.');
+                }
+            }
+        },
+
+        async updateStatus(id, newStatus) {
+            try {
+                await API.patch(`/api/v1/campaigns/contents/${id}/`, { status: newStatus });
+                await this.loadData();
+            } catch (e) { alert('Erro ao atualizar status'); }
+        },
+
+        async deleteContent(c) {
+            if (!confirm(`Excluir "${c.title}"?`)) return;
+            try {
+                await API.delete(`/api/v1/campaigns/contents/${c.id}/`);
+                await this.loadData();
+            } catch (e) { alert('Erro ao excluir'); }
+        },
+
+        statusLabel(s) {
+            return { pending: 'Pendente', in_production: 'Em Produção', approved: 'Aprovado', published: 'Publicado' }[s] || s;
+        },
+        statusDotClass(s) {
+            return {
+                pending: 'bg-yellow-500',
+                in_production: 'bg-blue-500',
+                approved: 'bg-purple-500',
+                published: 'bg-green-500',
+            }[s] || 'bg-gray-400';
+        },
+        typeLabel(t) {
+            return { briefing: 'Briefing', social_post: 'Post Redes Sociais', whatsapp: 'Material WhatsApp', photo: 'Registro Fotográfico', video: 'Vídeo', press: 'Nota de Imprensa' }[t] || t;
+        },
+        phaseLabel(p) {
+            return { before: 'Antes da ação', after: 'Depois da ação' }[p] || p;
+        },
+        formatDate(d) {
+            if (!d) return '';
+            const [y, m, day] = d.split('-');
+            return `${day}/${m}/${y}`;
+        },
+        isOverdue(c) {
+            if (!c.due_date || c.status === 'published') return false;
+            return new Date(c.due_date) < new Date();
+        },
+    };
+}
+</script>
+{% endblock %}

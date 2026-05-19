@@ -1,0 +1,145 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#002776">
+    <meta name="description" content="CRM Eleitoral - Sorgatto 26">
+    <title>{% block title %}CRM Eleitoral{% endblock %} | Sorgatto 26</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#e6edf8', 100: '#b3c9ea', 200: '#80a5dc', 300: '#4d81ce', 400: '#265ebf', 500: '#003DA5', 600: '#0046b8', 700: '#003a9a', 800: '#002e7d', 900: '#002776' },
+                        accent: { 50: '#e6f5ec', 100: '#b3e2c7', 200: '#80cea2', 300: '#4dba7d', 400: '#26ab62', 500: '#009c3b', 600: '#008c35', 700: '#007a2e', 800: '#006827', 900: '#004d1d' },
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Libs pesadas carregadas apenas onde necessario -->
+    {% block extra_head %}{% endblock %}
+
+    <!-- PWA Manifest desabilitado em dev -->
+    {% if not debug %}
+    <link rel="manifest" href="{% static 'js/pwa/manifest.json' %}">
+    {% endif %}
+
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen" x-data="{ sidebarOpen: false }">
+    {% include 'includes/navbar.html' %}
+
+    <div class="flex">
+        {% include 'includes/sidebar.html' %}
+
+        <main class="flex-1 p-4 md:p-6 lg:ml-16">
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="p-4 rounded-lg mb-2 {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% block breadcrumb %}{% endblock %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+    // Limpar qualquer Service Worker cacheado
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+            regs.forEach(r => r.unregister());
+        });
+    }
+    </script>
+    <script src="{% static 'js/app.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+
+    <!-- Tooltip instantâneo: converte title em data-tip e mostra sem delay -->
+    <script>
+    (function() {
+        const tip = document.createElement('div');
+        tip.className = 'crm-tip';
+        tip.style.cssText = 'position:fixed;background:#1e293b;color:#fff;font-size:12px;font-weight:400;line-height:1.4;padding:6px 10px;border-radius:6px;max-width:320px;pointer-events:none;z-index:9999;opacity:0;transition:opacity .08s;white-space:normal;box-shadow:0 4px 12px rgba(0,0,0,.25);';
+        document.body.appendChild(tip);
+
+        let active = null;
+
+        function convert(root) {
+            root.querySelectorAll('[title]').forEach(el => {
+                if (el.closest('.map-tooltip') || el.tagName === 'IFRAME') return;
+                const text = el.getAttribute('title');
+                if (!text) return;
+                el.setAttribute('data-tip', text);
+                el.removeAttribute('title');
+            });
+        }
+
+        // Converter existentes
+        convert(document);
+
+        // Observar novos elementos (Alpine.js renderiza dinamicamente)
+        new MutationObserver(muts => {
+            for (const m of muts) {
+                for (const n of m.addedNodes) {
+                    if (n.nodeType === 1) convert(n);
+                }
+                // Atributo title adicionado dinamicamente
+                if (m.type === 'attributes' && m.attributeName === 'title' && m.target.getAttribute('title')) {
+                    const el = m.target;
+                    el.setAttribute('data-tip', el.getAttribute('title'));
+                    el.removeAttribute('title');
+                }
+            }
+        }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
+
+        document.addEventListener('mouseover', e => {
+            const el = e.target.closest('[data-tip]');
+            if (!el) { tip.style.opacity = '0'; active = null; return; }
+            if (el === active) return;
+            active = el;
+            tip.textContent = el.getAttribute('data-tip');
+            tip.style.opacity = '1';
+            positionTip(e);
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (!active) return;
+            positionTip(e);
+        });
+
+        document.addEventListener('mouseout', e => {
+            const el = e.target.closest('[data-tip]');
+            if (el === active) { tip.style.opacity = '0'; active = null; }
+        });
+
+        function positionTip(e) {
+            const x = e.clientX, y = e.clientY;
+            const tw = tip.offsetWidth, th = tip.offsetHeight;
+            const ww = window.innerWidth, wh = window.innerHeight;
+            let left = x + 12, top = y - th - 8;
+            if (left + tw > ww - 8) left = x - tw - 12;
+            if (top < 8) top = y + 18;
+            if (left < 8) left = 8;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+        }
+    })();
+    </script>
+</body>
+</html>

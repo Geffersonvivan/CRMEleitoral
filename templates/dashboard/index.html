@@ -1,0 +1,995 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="dashboardApp()" x-init="init()">
+    <!-- Mapa de SC -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+        <div class="flex items-center justify-between mb-2">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800" title="Mapa interativo de SC com 21 regiões e ~295 cidades. Clique numa região para ver detalhes">Mapa Político de Articulação</h2>
+                <p class="text-sm text-gray-500" x-text="currentLevel === 'state' ? 'Santa Catarina' : regionName"></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+                    <button @click="setMapMode('eleicoes_2022')"
+                            :class="mapMode === 'eleicoes_2022' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Resultados eleitorais 2022: posição do LS por cidade (dep. estadual) e votos por zona eleitoral">
+                        Eleições 2022
+                    </button>
+                    <button @click="setMapMode('regioes')"
+                            :class="mapMode === 'regioes' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Visualiza as 21 associações de municípios coloridas por macro região">
+                        Regiões
+                    </button>
+                    <button @click="setMapMode('calor')"
+                            :class="mapMode === 'calor' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Penetração de votos LS 2022 sobre eleitores: vermelho (baixa) a verde (alta)">
+                        Mapa de Calor
+                    </button>
+                    <button @click="setMapMode('demandas')"
+                            :class="mapMode === 'demandas' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Status das demandas por região: verde (em dia), amarelo (próximo do prazo), vermelho (atrasada)">
+                        Demandas
+                    </button>
+                    <button @click="setMapMode('roteiros')"
+                            :class="mapMode === 'roteiros' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Roteiros de viagem planejados e realizados sobre o mapa">
+                        Roteiros
+                    </button>
+                    <button @click="setMapMode('estrategico')"
+                            :class="mapMode === 'estrategico' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Análise estratégica: classifica cidades como Base Forte, Aliado Fraco, Potencial Oculto ou Território Hostil">
+                        Estratégico
+                    </button>
+                    <button @click="setMapMode('rede_pl')"
+                            :class="mapMode === 'rede_pl' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Força da rede PL: mede presença de coordenadores, vereadores, diretório e contatos do PL em cada cidade">
+                        Rede PL
+                    </button>
+                    <button @click="setMapMode('zonas')"
+                            :class="mapMode === 'zonas' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Ranking das 99 zonas eleitorais de SC por desempenho do LS em 2022 (Dep. Federal)">
+                        Zonas Eleitorais
+                    </button>
+                    <button @click="setMapMode('transferencia')"
+                            :class="mapMode === 'transferencia' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Transferência de votos: setas mostram oportunidades de expansão de cidades fortes para vizinhas com baixa penetração">
+                        Transferência
+                    </button>
+                    <button @click="setMapMode('deputados')"
+                            :class="mapMode === 'deputados' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                            class="px-3 py-1.5 font-medium transition-colors"
+                            title="Deputados estaduais PL aliados: onde cada deputado é forte e pode ser ponte para o LS">
+                        Dep. Aliados
+                    </button>
+                </div>
+                <button x-show="currentLevel !== 'state'" @click="backToState()"
+                        class="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center gap-1"
+                        title="Retornar à visão geral do estado de Santa Catarina">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Voltar ao Estado
+                </button>
+            </div>
+        </div>
+        <div id="map-container" class="h-[500px] md:h-[600px] rounded-lg border border-gray-200 bg-slate-50"></div>
+    </div>
+
+    <!-- Legenda Macro Regiões -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="currentLevel === 'state' && mapMode === 'regioes'">
+        <div class="flex flex-wrap gap-4">
+            <template x-for="mr in data.macro_regions || []" :key="mr.slug">
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="w-4 h-4 rounded-sm inline-block" :style="'background:' + mr.color"></span>
+                    <span x-text="mr.name" class="font-medium text-gray-700"></span>
+                    <span class="text-gray-400" x-text="(mr.population || 0).toLocaleString('pt-BR')"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Legenda Mapa de Calor -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'calor'">
+        <div class="flex items-center gap-4">
+            <span class="text-sm font-semibold text-gray-700">Penetração LS 2022</span>
+            <div class="flex items-center gap-1">
+                <span class="text-xs text-gray-500">0%</span>
+                <div class="w-48 h-4 rounded" style="background: linear-gradient(to right, #ef4444, #eab308, #22c55e)"></div>
+                <span class="text-xs text-gray-500">5%+</span>
+            </div>
+            <span class="text-xs text-gray-400">Votos Sorgatto 2022 / Eleitores</span>
+        </div>
+    </div>
+
+    <!-- Legenda Demandas -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'demandas'">
+        <div class="flex items-center gap-6">
+            <span class="text-sm font-semibold text-gray-700">Status das Demandas</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-green-500 inline-block"></span><span class="text-xs text-gray-600">Em dia</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-yellow-500 inline-block"></span><span class="text-xs text-gray-600">Próximo do prazo</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-red-500 inline-block animate-pulse"></span><span class="text-xs text-gray-600">Em atraso</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-gray-300 inline-block"></span><span class="text-xs text-gray-600">Sem demandas</span></div>
+            <a href="/demandas/" class="text-xs text-primary-600 hover:text-primary-800 ml-auto">Abrir painel &rarr;</a>
+        </div>
+    </div>
+
+    <!-- Legenda Roteiros -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'roteiros'">
+        <div class="flex items-center gap-6">
+            <span class="text-sm font-semibold text-gray-700">Roteiros</span>
+            <div class="flex items-center gap-1.5">
+                <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4,2"/></svg>
+                <span class="text-xs text-gray-600">Planejado</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#f97316" stroke-width="2"/></svg>
+                <span class="text-xs text-gray-600">Em andamento</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#22c55e" stroke-width="2" opacity="0.4"/></svg>
+                <span class="text-xs text-gray-600">Concluído</span>
+            </div>
+            <label class="flex items-center gap-1.5 ml-auto text-xs text-gray-500 cursor-pointer">
+                <input type="checkbox" x-model="showCompletedRoutes" @change="setMapMode('roteiros')" class="rounded">
+                Mostrar concluídos
+            </label>
+            <a href="/roteiros/" class="text-xs text-primary-600 hover:text-primary-800">Ver todos &rarr;</a>
+        </div>
+    </div>
+
+    <!-- Legenda Estratégico -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'estrategico'">
+        <div class="flex items-center gap-6">
+            <span class="text-sm font-semibold text-gray-700">Análise Estratégica</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#15803d"></span><span class="text-xs text-gray-600">Base Forte</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#86efac"></span><span class="text-xs text-gray-600">Aliado Fraco</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#eab308"></span><span class="text-xs text-gray-600">Potencial Oculto</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#dc2626"></span><span class="text-xs text-gray-600">Território Hostil</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#9ca3af"></span><span class="text-xs text-gray-600">Neutro</span></div>
+            <span class="text-xs text-gray-400 ml-auto" x-show="strategicData">Penetração média: <span x-text="(strategicData?.avg_penetration || 0).toFixed(2) + '%'" class="font-semibold"></span></span>
+        </div>
+    </div>
+
+    <!-- Legenda Transferência -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'transferencia'">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span class="text-sm font-semibold text-gray-700">Mapa Cruzado LS × Jorginho × Carol</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#fbbf24"></span><span class="text-xs text-gray-600">Zona de Ouro</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#15803d"></span><span class="text-xs text-gray-600">Polo LS</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#7c3aed"></span><span class="text-xs text-gray-600">Buscar Ambos</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#2563eb"></span><span class="text-xs text-gray-600">Buscar Jorginho</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#ec4899"></span><span class="text-xs text-gray-600">Buscar Carol</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#d1d5db"></span><span class="text-xs text-gray-600">Baixa Prioridade</span></div>
+            <div class="flex items-center gap-1.5 ml-2 pl-2 border-l">
+                <svg width="20" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#dc2626" stroke-width="2"/><polygon points="14,1 20,4 14,7" fill="#dc2626"/></svg>
+                <span class="text-xs text-gray-600">Seta = oportunidade</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 mt-2 text-xs text-gray-400" x-show="transferData">
+            <span><span x-text="transferData?.total_opportunities || 0" class="font-semibold"></span> oportunidades</span>
+            <span>Potencial: <span x-text="(transferData?.total_potential_votes || 0).toLocaleString('pt-BR')" class="font-semibold"></span> votos</span>
+            <span>Média LS: <span x-text="transferData?.avg_penetration + '%'" class="font-semibold"></span></span>
+            <span>Média Jorginho: <span x-text="transferData?.avg_jorginho + '%'" class="font-semibold text-blue-600"></span></span>
+            <span>Média Carol: <span x-text="transferData?.avg_carol + '%'" class="font-semibold text-pink-500"></span></span>
+        </div>
+    </div>
+
+    <!-- Cards Resumo Transferência - Classificação Cruzada -->
+    <div class="grid grid-cols-6 gap-2 mb-4" x-show="mapMode === 'transferencia' && transferData">
+        <template x-for="cls in ['zona_ouro', 'polo_ls', 'buscar_ambos', 'buscar_jorginho', 'buscar_carol', 'baixa_prioridade']" :key="cls">
+            <div class="bg-white rounded-xl shadow-md p-3 cursor-pointer border-2 transition-colors"
+                 :class="transferFilter === cls ? 'border-gray-800' : 'border-transparent hover:border-gray-200'"
+                 @click="transferFilter = transferFilter === cls ? '' : cls">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="w-3 h-3 rounded-sm" :style="'background:' + transferOppColor(cls)"></span>
+                    <span class="text-xs text-gray-500" x-text="transferOppLabel(cls)"></span>
+                </div>
+                <div class="text-xl font-bold" :style="'color:' + transferOppColor(cls)" x-text="transferOppCount(cls)"></div>
+                <div class="text-[10px] text-gray-400 mt-0.5" x-text="cls === 'zona_ouro' ? 'LS + JM + CT fortes' : cls === 'polo_ls' ? 'LS forte, aliados fracos' : cls === 'buscar_ambos' ? 'JM + CT fortes, LS fraco' : cls === 'buscar_jorginho' ? 'JM forte, LS fraco' : cls === 'buscar_carol' ? 'CT forte, LS fraco' : 'Todos fracos'"></div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Tabela Transferência -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'transferencia' && transferData">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">
+                Oportunidades de Transferência
+                <span class="text-gray-400 font-normal" x-text="'(' + transferFiltered.length + ' oportunidades)'"></span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <select x-model="transferSort" class="text-xs border rounded px-2 py-1 text-gray-600" title="Ordenar oportunidades">
+                    <option value="score_desc">Score (maior)</option>
+                    <option value="potential_desc">Potencial votos (maior)</option>
+                    <option value="diff_desc">Diferença % (maior)</option>
+                    <option value="distance_asc">Distância (menor)</option>
+                    <option value="source_asc">Cidade origem (A-Z)</option>
+                </select>
+                <button x-show="transferFilter" @click="transferFilter = ''"
+                        class="text-xs text-primary-600 hover:text-primary-800">Limpar filtro</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-center" title="Nível de prioridade da oportunidade">Pri.</th>
+                        <th class="text-left" title="Cidade com alta penetração que pode irradiar votos">Cidade Origem</th>
+                        <th class="text-right" title="Penetração do LS na cidade de origem">% LS Orig.</th>
+                        <th class="text-center w-8">→</th>
+                        <th class="text-left" title="Cidade vizinha com baixa penetração que pode ser expandida">Cidade Alvo</th>
+                        <th class="text-right" title="Penetração do LS na cidade alvo">% LS Alvo</th>
+                        <th class="text-right" title="Diferença de penetração entre origem e alvo">Dif.</th>
+                        <th class="text-right" title="Estimativa de votos que podem ser conquistados na cidade alvo">Potencial</th>
+                        <th class="text-right" title="Distância em km entre as duas cidades">Dist.</th>
+                        <th class="text-right" title="Score de oportunidade de 0 a 100">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="o in transferFiltered" :key="o.source.slug + '-' + o.target.slug">
+                        <tr>
+                            <td class="text-center">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full" :style="'background:' + transferPriorityColor(o.priority)"></span>
+                            </td>
+                            <td class="text-left">
+                                <a :href="'/cidade/' + o.source.slug + '/?mapa=' + mapMode" class="font-semibold text-green-700 hover:underline" x-text="o.source.name"></a>
+                                <span class="text-xs text-gray-400 ml-1" x-text="o.source.region"></span>
+                            </td>
+                            <td class="text-right tabular-nums text-green-700 font-medium" x-text="o.source.penetration + '%'"></td>
+                            <td class="text-center text-gray-300">→</td>
+                            <td class="text-left">
+                                <a :href="'/cidade/' + o.target.slug + '/?mapa=' + mapMode" class="font-semibold text-orange-600 hover:underline" x-text="o.target.name"></a>
+                                <span class="text-xs text-gray-400 ml-1" x-text="o.target.region"></span>
+                            </td>
+                            <td class="text-right tabular-nums text-orange-600" x-text="o.target.penetration + '%'"></td>
+                            <td class="text-right tabular-nums font-medium" x-text="o.pen_diff.toFixed(1) + '%'"></td>
+                            <td class="text-right tabular-nums font-bold text-primary-700" x-text="'+' + o.potential_votes.toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums text-xs text-gray-500" x-text="o.distance_km + 'km'"></td>
+                            <td class="text-right tabular-nums font-bold" x-text="o.score"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tabela Cidades - Análise Cruzada -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'transferencia' && transferData">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">
+                Análise Cruzada por Cidade
+                <span class="text-gray-400 font-normal" x-text="'(' + transferCitiesFiltered.length + ' cidades)'"></span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <select x-model="transferCitySort" class="text-xs border rounded px-2 py-1 text-gray-600" title="Ordenar cidades">
+                    <option value="penetration_desc">LS % (maior)</option>
+                    <option value="jorginho_desc">Jorginho % (maior)</option>
+                    <option value="carol_desc">Carol % (maior)</option>
+                    <option value="voters_desc">Eleitores (maior)</option>
+                    <option value="name_asc">Cidade (A-Z)</option>
+                </select>
+                <button x-show="transferFilter" @click="transferFilter = ''"
+                        class="text-xs text-primary-600 hover:text-primary-800">Limpar filtro</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-center w-8">Class.</th>
+                        <th class="text-left">Cidade</th>
+                        <th class="text-right" title="Penetração do LS">LS %</th>
+                        <th class="text-right" title="Votos LS 2022">Votos LS</th>
+                        <th class="text-right" title="Percentual Jorginho Melo (Governador 2022)">Jorginho %</th>
+                        <th class="text-right" title="Votos Jorginho Melo">Votos JM</th>
+                        <th class="text-right" title="Percentual Carol De Toni (Dep. Federal 2022)">Carol %</th>
+                        <th class="text-right" title="Votos Carol De Toni">Votos CT</th>
+                        <th class="text-right">Eleitores</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in transferCitiesFiltered" :key="c.slug">
+                        <tr>
+                            <td class="text-center">
+                                <span class="inline-block w-2.5 h-2.5 rounded-sm" :style="'background:' + transferOppColor(c.opp_class)" :title="transferOppLabel(c.opp_class)"></span>
+                            </td>
+                            <td class="text-left">
+                                <a :href="'/cidade/' + c.slug + '/?mapa=' + mapMode" class="font-semibold text-gray-800 hover:underline" x-text="c.name"></a>
+                                <span class="text-xs text-gray-400 ml-1" x-text="c.region_name"></span>
+                            </td>
+                            <td class="text-right tabular-nums font-medium" :style="'color:' + (c.penetration >= (transferData?.avg_penetration||0) ? '#15803d' : '#f97316')" x-text="c.penetration + '%'"></td>
+                            <td class="text-right tabular-nums text-gray-600" x-text="c.votes.toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums font-medium" :style="'color:' + (c.jorginho_pct >= (transferData?.avg_jorginho||0) ? '#2563eb' : '#93c5fd')" x-text="c.jorginho_pct + '%'"></td>
+                            <td class="text-right tabular-nums text-gray-600" x-text="(c.jorginho_votes||0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums font-medium" :style="'color:' + (c.carol_pct >= (transferData?.avg_carol||0) ? '#ec4899' : '#f9a8d4')" x-text="c.carol_pct + '%'"></td>
+                            <td class="text-right tabular-nums text-gray-600" x-text="(c.carol_votes||0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums text-xs text-gray-500" x-text="c.voters.toLocaleString('pt-BR')"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legenda Deputados Aliados -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'deputados'">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span class="text-sm font-semibold text-gray-700">Deputados Estaduais PL Aliados</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#f59e0b"></span><span class="text-xs text-gray-600">Ponte Forte</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#15803d"></span><span class="text-xs text-gray-600">Base Conjunta</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#2563eb"></span><span class="text-xs text-gray-600">Território Dep.</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#86efac"></span><span class="text-xs text-gray-600">Território LS</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#d1d5db"></span><span class="text-xs text-gray-600">Sem Presença</span></div>
+        </div>
+        <div class="flex items-center gap-4 mt-2 text-xs text-gray-400" x-show="deputiesData">
+            <span>Média LS: <span x-text="deputiesData?.avg_ls + '%'" class="font-semibold"></span></span>
+            <span><span x-text="deputiesData?.deputies?.length || 0" class="font-semibold"></span> deputados PL eleitos</span>
+            <span><span x-text="(deputiesData?.cities || []).length" class="font-semibold"></span> cidades analisadas</span>
+        </div>
+    </div>
+
+    <!-- Cards Resumo Deputados -->
+    <div class="grid grid-cols-5 gap-2 mb-4" x-show="mapMode === 'deputados' && deputiesData">
+        <template x-for="cls in ['ponte_forte', 'base_conjunta', 'territorio_dep', 'territorio_ls', 'sem_presenca']" :key="cls">
+            <div class="bg-white rounded-xl shadow-md p-3 cursor-pointer border-2 transition-colors"
+                 :class="deputiesFilter === cls ? 'border-gray-800' : 'border-transparent hover:border-gray-200'"
+                 @click="deputiesFilter = deputiesFilter === cls ? '' : cls">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="w-3 h-3 rounded-sm" :style="'background:' + deputiesClassColor(cls)"></span>
+                    <span class="text-xs text-gray-500" x-text="deputiesClassLabel(cls)"></span>
+                </div>
+                <div class="text-xl font-bold" :style="'color:' + deputiesClassColor(cls)" x-text="deputiesCount(cls)"></div>
+                <div class="text-[10px] text-gray-400 mt-0.5" x-text="cls === 'ponte_forte' ? 'Dep forte + LS fraco' : cls === 'base_conjunta' ? 'Dep forte + LS forte' : cls === 'territorio_dep' ? 'Dep forte + LS zero' : cls === 'territorio_ls' ? 'LS forte sem dep' : 'Ambos fracos'"></div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Ranking Deputados -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'deputados' && deputiesData">
+        <h3 class="text-sm font-semibold mb-3">Deputados PL Eleitos 2022 (Dep. Estadual)</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <template x-for="dep in (deputiesData?.deputies || [])" :key="dep.name">
+                <div class="bg-gray-50 rounded-lg p-2 text-center">
+                    <div class="text-xs font-semibold text-gray-800" x-text="dep.name"></div>
+                    <div class="text-sm font-bold text-blue-700" x-text="dep.total_votes.toLocaleString('pt-BR')"></div>
+                    <div class="text-[10px] text-gray-400" x-text="dep.cities_with_votes + ' cidades'"></div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Tabela Deputados por Cidade -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'deputados' && deputiesData">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">
+                Análise por Cidade
+                <span class="text-gray-400 font-normal" x-text="'(' + deputiesFiltered.length + ' cidades)'"></span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <select x-model="deputiesSort" class="text-xs border rounded px-2 py-1 text-gray-600">
+                    <option value="best_dep_desc">Dep. % (maior)</option>
+                    <option value="ls_desc">LS % (maior)</option>
+                    <option value="total_desc">Total votos dep. (maior)</option>
+                    <option value="name_asc">Cidade (A-Z)</option>
+                </select>
+                <button x-show="deputiesFilter" @click="deputiesFilter = ''"
+                        class="text-xs text-primary-600 hover:text-primary-800">Limpar filtro</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-center w-8">Class.</th>
+                        <th class="text-left">Cidade</th>
+                        <th class="text-right" title="Penetração LS (Dep. Estadual 2022)">LS %</th>
+                        <th class="text-left" title="Deputado PL mais votado na cidade">Dep. Mais Votado</th>
+                        <th class="text-right" title="Percentual do deputado mais votado">Dep. %</th>
+                        <th class="text-left" title="Segundo e terceiro deputados mais votados">Outros Dep. PL</th>
+                        <th class="text-right" title="Total de votos de todos dep. PL na cidade">Total Dep.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in deputiesFiltered" :key="c.slug">
+                        <tr>
+                            <td class="text-center">
+                                <span class="inline-block w-2.5 h-2.5 rounded-sm" :style="'background:' + deputiesClassColor(c.classification)" :title="deputiesClassLabel(c.classification)"></span>
+                            </td>
+                            <td class="text-left">
+                                <a :href="'/cidade/' + c.slug + '/?mapa=' + mapMode" class="font-semibold text-gray-800 hover:underline" x-text="c.name"></a>
+                                <span class="text-xs text-gray-400 ml-1" x-text="c.region_name"></span>
+                            </td>
+                            <td class="text-right tabular-nums font-medium" :style="'color:' + (c.ls_pct >= (deputiesData?.avg_ls||0) ? '#15803d' : '#f97316')" x-text="c.ls_pct + '%'"></td>
+                            <td class="text-left">
+                                <span class="font-semibold text-blue-700" x-text="c.best_dep_name || '-'"></span>
+                            </td>
+                            <td class="text-right tabular-nums font-medium text-blue-700" x-text="c.best_dep_pct ? c.best_dep_pct + '%' : '-'"></td>
+                            <td class="text-left text-xs text-gray-500">
+                                <template x-for="dep in (c.top3_deps || []).slice(1)" :key="dep.name">
+                                    <span class="mr-2" x-text="dep.name + ' (' + dep.pct + '%)'"></span>
+                                </template>
+                            </td>
+                            <td class="text-right tabular-nums text-xs text-gray-600" x-text="c.total_dep_votes.toLocaleString('pt-BR')"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Legenda Zonas Eleitorais -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'zonas'">
+        <div class="flex items-center gap-6">
+            <span class="text-sm font-semibold text-gray-700">Zonas Eleitorais — Posição LS 2022</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#15803d"></span><span class="text-xs text-gray-600">1º Lugar</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#22c55e"></span><span class="text-xs text-gray-600">Top 3</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#eab308"></span><span class="text-xs text-gray-600">Top 5</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#f97316"></span><span class="text-xs text-gray-600">6º+</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#d1d5db"></span><span class="text-xs text-gray-600">Sem dados</span></div>
+            <span class="text-xs text-gray-400 ml-auto" x-show="zoneData" x-text="(zoneData?.total_zones || 0) + ' zonas eleitorais'"></span>
+        </div>
+    </div>
+
+    <!-- Cards Resumo Zonas -->
+    <div class="grid grid-cols-5 gap-3 mb-4" x-show="mapMode === 'zonas' && zoneData">
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="zoneFilter === 'lider' ? 'border-green-700' : 'border-transparent hover:border-gray-200'"
+             @click="zoneFilter = zoneFilter === 'lider' ? '' : 'lider'"
+             title="Zonas onde Sorgatto ficou em 1º lugar em votos para Dep. Federal 2022">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#15803d"></span>
+                <span class="text-xs text-gray-500">1º Lugar</span>
+            </div>
+            <div class="text-2xl font-bold text-green-800" x-text="zoneCount('lider')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="zoneFilter === 'competitivo' ? 'border-green-500' : 'border-transparent hover:border-gray-200'"
+             @click="zoneFilter = zoneFilter === 'competitivo' ? '' : 'competitivo'"
+             title="Zonas onde Sorgatto ficou entre 2º e 3º lugar">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#22c55e"></span>
+                <span class="text-xs text-gray-500">Top 3</span>
+            </div>
+            <div class="text-2xl font-bold text-green-600" x-text="zoneCount('competitivo')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="zoneFilter === 'medio' ? 'border-yellow-500' : 'border-transparent hover:border-gray-200'"
+             @click="zoneFilter = zoneFilter === 'medio' ? '' : 'medio'"
+             title="Zonas onde Sorgatto ficou entre 4º e 5º lugar">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#eab308"></span>
+                <span class="text-xs text-gray-500">Top 5</span>
+            </div>
+            <div class="text-2xl font-bold text-yellow-600" x-text="zoneCount('medio')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="zoneFilter === 'baixo' ? 'border-orange-500' : 'border-transparent hover:border-gray-200'"
+             @click="zoneFilter = zoneFilter === 'baixo' ? '' : 'baixo'"
+             title="Zonas onde Sorgatto ficou em 6º lugar ou pior">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#f97316"></span>
+                <span class="text-xs text-gray-500">6º+</span>
+            </div>
+            <div class="text-2xl font-bold text-orange-500" x-text="zoneCount('baixo')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="zoneFilter === 'ausente' ? 'border-gray-500' : 'border-transparent hover:border-gray-200'"
+             @click="zoneFilter = zoneFilter === 'ausente' ? '' : 'ausente'"
+             title="Zonas sem dados de votação do Sorgatto">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#d1d5db"></span>
+                <span class="text-xs text-gray-500">Sem dados</span>
+            </div>
+            <div class="text-2xl font-bold text-gray-500" x-text="zoneCount('ausente')"></div>
+        </div>
+    </div>
+
+    <!-- Legenda Rede PL -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'rede_pl'">
+        <div class="flex items-center gap-6">
+            <span class="text-sm font-semibold text-gray-700">Força da Rede PL</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#1e3a8a"></span><span class="text-xs text-gray-600">Forte (≥60)</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#2563eb"></span><span class="text-xs text-gray-600">Moderada (35-59)</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#93c5fd"></span><span class="text-xs text-gray-600">Fraca (1-34)</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#d1d5db"></span><span class="text-xs text-gray-600">Ausente (0)</span></div>
+            <div class="flex items-center gap-1 ml-auto">
+                <span class="text-xs text-gray-500">Score:</span>
+                <div class="w-32 h-3 rounded" style="background: linear-gradient(to right, #d1d5db, #bfdbfe, #60a5fa, #2563eb, #1e3a8a)"></div>
+                <span class="text-xs text-gray-500">0 → 100</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards Resumo Rede PL -->
+    <div class="grid grid-cols-4 gap-3 mb-4" x-show="mapMode === 'rede_pl' && plNetworkData">
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="plNetworkFilter === 'forte' ? 'border-blue-900' : 'border-transparent hover:border-gray-200'"
+             @click="plNetworkFilter = plNetworkFilter === 'forte' ? '' : 'forte'"
+             title="Cidades com score ≥60: coordenador ativo, vereadores PL, diretório e boa base de contatos">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#1e3a8a"></span>
+                <span class="text-xs text-gray-500">Forte</span>
+            </div>
+            <div class="text-2xl font-bold text-blue-900" x-text="plNetworkCount('forte')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="plNetworkFilter === 'moderada' ? 'border-blue-600' : 'border-transparent hover:border-gray-200'"
+             @click="plNetworkFilter = plNetworkFilter === 'moderada' ? '' : 'moderada'"
+             title="Cidades com score 35-59: presença parcial do PL, com espaço para crescimento">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#2563eb"></span>
+                <span class="text-xs text-gray-500">Moderada</span>
+            </div>
+            <div class="text-2xl font-bold text-blue-600" x-text="plNetworkCount('moderada')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="plNetworkFilter === 'fraca' ? 'border-blue-300' : 'border-transparent hover:border-gray-200'"
+             @click="plNetworkFilter = plNetworkFilter === 'fraca' ? '' : 'fraca'"
+             title="Cidades com score 1-34: presença mínima do PL, precisa de investimento">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#93c5fd"></span>
+                <span class="text-xs text-gray-500">Fraca</span>
+            </div>
+            <div class="text-2xl font-bold text-blue-400" x-text="plNetworkCount('fraca')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="plNetworkFilter === 'ausente' ? 'border-gray-500' : 'border-transparent hover:border-gray-200'"
+             @click="plNetworkFilter = plNetworkFilter === 'ausente' ? '' : 'ausente'"
+             title="Cidades com score 0: nenhuma presença do PL detectada">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#d1d5db"></span>
+                <span class="text-xs text-gray-500">Ausente</span>
+            </div>
+            <div class="text-2xl font-bold text-gray-500" x-text="plNetworkCount('ausente')"></div>
+        </div>
+    </div>
+
+    <!-- Cards Resumo Estratégico -->
+    <div class="grid grid-cols-5 gap-3 mb-4" x-show="mapMode === 'estrategico' && strategicData">
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="strategicFilter === 'base_forte' ? 'border-green-700' : 'border-transparent hover:border-gray-200'"
+             @click="strategicFilter = strategicFilter === 'base_forte' ? '' : 'base_forte'">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#15803d"></span>
+                <span class="text-xs text-gray-500">Base Forte</span>
+            </div>
+            <div class="text-2xl font-bold text-green-800" x-text="strategicCount('base_forte')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="strategicFilter === 'potencial_oculto' ? 'border-yellow-500' : 'border-transparent hover:border-gray-200'"
+             @click="strategicFilter = strategicFilter === 'potencial_oculto' ? '' : 'potencial_oculto'">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#eab308"></span>
+                <span class="text-xs text-gray-500">Potencial Oculto</span>
+            </div>
+            <div class="text-2xl font-bold text-yellow-600" x-text="strategicCount('potencial_oculto')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="strategicFilter === 'aliado_fraco' ? 'border-green-400' : 'border-transparent hover:border-gray-200'"
+             @click="strategicFilter = strategicFilter === 'aliado_fraco' ? '' : 'aliado_fraco'">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#86efac"></span>
+                <span class="text-xs text-gray-500">Aliado Fraco</span>
+            </div>
+            <div class="text-2xl font-bold text-green-500" x-text="strategicCount('aliado_fraco')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="strategicFilter === 'territorio_hostil' ? 'border-red-600' : 'border-transparent hover:border-gray-200'"
+             @click="strategicFilter = strategicFilter === 'territorio_hostil' ? '' : 'territorio_hostil'">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span>
+                <span class="text-xs text-gray-500">Território Hostil</span>
+            </div>
+            <div class="text-2xl font-bold text-red-600" x-text="strategicCount('territorio_hostil')"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer border-2 transition-colors"
+             :class="strategicFilter === 'neutro' ? 'border-gray-500' : 'border-transparent hover:border-gray-200'"
+             @click="strategicFilter = strategicFilter === 'neutro' ? '' : 'neutro'">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-sm" style="background:#9ca3af"></span>
+                <span class="text-xs text-gray-500">Neutro</span>
+            </div>
+            <div class="text-2xl font-bold text-gray-500" x-text="strategicCount('neutro')"></div>
+        </div>
+    </div>
+
+    <!-- Cards Resumo -->
+    <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4" x-show="mapMode !== 'eleicoes_2022'">
+        <div class="bg-white rounded-xl shadow-md p-4" title="Total de coordenadores regionais, municipais e de bairro ativos">
+            <div class="text-2xl font-bold text-primary-900" x-text="data.coordenadores || 0"></div>
+            <div class="text-xs text-gray-500">Coordenadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4" title="Total de apoiadores declarados cadastrados no CRM">
+            <div class="text-2xl font-bold text-green-600" x-text="data.apoiadores || 0"></div>
+            <div class="text-xs text-gray-500">Apoiadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4" title="Contatos classificados como parceiros da campanha">
+            <div class="text-2xl font-bold text-blue-600" x-text="data.parceiros || 0"></div>
+            <div class="text-xs text-gray-500">Parceiros</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4" title="Lideranças comunitárias e políticas identificadas">
+            <div class="text-2xl font-bold text-purple-600" x-text="data.liderancas || 0"></div>
+            <div class="text-xs text-gray-500">Lideranças Políticas</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4" title="Empresas parceiras que colaboram com a campanha">
+            <div class="text-2xl font-bold text-orange-600" x-text="data.empresas_parceiras || 0"></div>
+            <div class="text-xs text-gray-500">Empresas</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4" title="Soma de todos os contatos ativos cadastrados no CRM">
+            <div class="text-2xl font-bold text-gray-800" x-text="data.total_contatos || 0"></div>
+            <div class="text-xs text-gray-500">Total Contatos</div>
+        </div>
+    </div>
+
+    <!-- Tabela Zonas Eleitorais -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'zonas' && zoneData">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">
+                Ranking de Zonas Eleitorais
+                <span class="text-gray-400 font-normal" x-text="'(' + zoneFiltered.length + ' zonas)'"></span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <select x-model="zoneSort" class="text-xs border rounded px-2 py-1 text-gray-600" title="Ordenar a tabela de zonas por diferentes critérios">
+                    <option value="ranking_asc">Ranking (melhor)</option>
+                    <option value="votes_desc">Votos LS (maior)</option>
+                    <option value="position_asc">Posição LS (melhor)</option>
+                    <option value="percentage_desc">% LS (maior)</option>
+                    <option value="gap_asc">Gap p/ 1º (menor)</option>
+                    <option value="zone_asc">Nº Zona</option>
+                </select>
+                <button x-show="zoneFilter" @click="zoneFilter = ''"
+                        class="text-xs text-primary-600 hover:text-primary-800">Limpar filtro</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-center w-12" title="Posição no ranking geral por votos do LS">#</th>
+                        <th class="text-center" title="Número da zona eleitoral do TRE-SC">Zona</th>
+                        <th class="text-center" title="Posição do LS entre todos os candidatos a Dep. Federal na zona em 2022">Posição LS</th>
+                        <th class="text-center" title="Classificação: 1º Lugar, Top 3, Top 5 ou 6º+">Performance</th>
+                        <th class="text-right" title="Total de votos do Sorgatto nesta zona em 2022">Votos LS</th>
+                        <th class="text-right" title="Percentual dos votos do LS sobre o total de votos na zona">% LS</th>
+                        <th class="text-left" title="Candidato mais votado na zona (exceto LS)">Principal Concorrente</th>
+                        <th class="text-right" title="Diferença de votos entre o 1º colocado e o LS">Gap p/ 1º</th>
+                        <th class="text-left" title="Cidades que compõem esta zona eleitoral">Cidades</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="z in zoneFiltered" :key="z.zone_number">
+                        <tr>
+                            <td class="text-center font-bold text-gray-400" x-text="z.ranking"></td>
+                            <td class="text-center font-semibold" x-text="z.zone_number"></td>
+                            <td class="text-center">
+                                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-white text-xs font-bold"
+                                      :style="'background:' + zonePerfColor(z.performance)"
+                                      x-text="z.ls_position + 'º'"></span>
+                            </td>
+                            <td class="text-center">
+                                <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                                      :style="'background:' + zonePerfColor(z.performance) + '20;color:' + zonePerfColor(z.performance)"
+                                      x-text="zonePerfLabel(z.performance)"></span>
+                            </td>
+                            <td class="text-right tabular-nums font-bold" x-text="z.ls_votes.toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="z.ls_percentage.toFixed(1) + '%'"></td>
+                            <td class="text-left text-xs">
+                                <template x-if="z.top_competitor">
+                                    <span>
+                                        <span x-text="z.top_competitor.name" class="font-medium"></span>
+                                        <span class="text-gray-400" x-text="'(' + z.top_competitor.party.split(' ')[0] + ')'"></span>
+                                        <span class="text-gray-500" x-text="z.top_competitor.votes.toLocaleString('pt-BR') + 'v'"></span>
+                                    </span>
+                                </template>
+                            </td>
+                            <td class="text-right tabular-nums text-xs">
+                                <span :class="z.gap_to_first > 0 ? 'text-red-500' : 'text-green-600 font-bold'"
+                                      x-text="z.gap_to_first > 0 ? '-' + z.gap_to_first.toLocaleString('pt-BR') : '—'"></span>
+                            </td>
+                            <td class="text-left text-xs text-gray-500 max-w-[200px] truncate" :title="z.city_names" x-text="z.city_names"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tabela Rede PL -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'rede_pl' && plNetworkData">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">
+                Força da Rede PL por Cidade
+                <span class="text-gray-400 font-normal" x-text="'(' + plNetworkFiltered.length + ' cidades)'"></span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <select x-model="plNetworkSort" class="text-xs border rounded px-2 py-1 text-gray-600" title="Ordenar a tabela por diferentes critérios">
+                    <option value="score_desc">Score (maior)</option>
+                    <option value="score_asc">Score (menor)</option>
+                    <option value="name_asc">Nome (A-Z)</option>
+                    <option value="vereadores_desc">Vereadores PL (maior)</option>
+                    <option value="contacts_desc">Contatos (maior)</option>
+                </select>
+                <button x-show="plNetworkFilter" @click="plNetworkFilter = ''"
+                        class="text-xs text-primary-600 hover:text-primary-800">Limpar filtro</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-left" title="Nome do município">Cidade</th>
+                        <th class="text-left" title="Associação de municípios à qual a cidade pertence">Região</th>
+                        <th class="text-center" title="Nível de força da rede PL: Forte, Moderada, Fraca ou Ausente">Nível</th>
+                        <th class="text-right" title="Score de 0 a 100 baseado em coordenador (25%), vereadores PL (25%), diretório (20%), contatos (15%) e engajamento (15%)">Score</th>
+                        <th class="text-center" title="Indica se a cidade tem coordenador regional ou municipal ativo do PL">Coordenador</th>
+                        <th class="text-right" title="Quantidade de vereadores do PL sobre o total na câmara municipal">Vereadores PL</th>
+                        <th class="text-center" title="Indica se existe presidente do diretório executivo municipal do PL">Diretório</th>
+                        <th class="text-right" title="Total de contatos ativos cadastrados no CRM para esta cidade">Contatos</th>
+                        <th class="text-right" title="Média do nível de engajamento dos contatos (1=Frio a 5=Embaixador)">Engajamento</th>
+                        <th class="text-left" title="Composição do score: barras indicam a contribuição de cada componente">Composição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in plNetworkFiltered" :key="c.slug">
+                        <tr class="clickable" @click="window.location.href='/cidade/' + c.slug + '/?mapa=' + mapMode">
+                            <td class="text-left font-semibold" x-text="c.name"></td>
+                            <td class="text-left text-xs text-gray-500" x-text="c.region_name"></td>
+                            <td class="text-center">
+                                <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                                      :style="'background:' + plNetworkLevelColor(c.level) + '20;color:' + plNetworkLevelColor(c.level)"
+                                      x-text="plNetworkLevelLabel(c.level)"></span>
+                            </td>
+                            <td class="text-right tabular-nums font-bold" x-text="c.score"></td>
+                            <td class="text-center">
+                                <span :class="c.has_coordinator ? 'text-green-600' : 'text-gray-300'" x-text="c.has_coordinator ? '✓' : '✗'"></span>
+                            </td>
+                            <td class="text-right tabular-nums text-xs" x-text="c.num_vereadores_pl + '/' + c.num_vereadores"></td>
+                            <td class="text-center">
+                                <span :class="c.pl_executive_president ? 'text-green-600' : 'text-gray-300'" x-text="c.pl_executive_president ? '✓' : '✗'"></span>
+                            </td>
+                            <td class="text-right tabular-nums" x-text="c.contacts"></td>
+                            <td class="text-right tabular-nums text-xs" x-text="c.avg_engagement.toFixed(1)"></td>
+                            <td class="text-left">
+                                <div class="flex gap-0.5 items-center" title="Coord | Vereadores | Diretório | Contatos | Engajamento">
+                                    <div class="h-2.5 rounded-sm" style="width:25%" :style="'background: linear-gradient(90deg, #2563eb ' + c.components.coordinator + '%, #e5e7eb ' + c.components.coordinator + '%)'"></div>
+                                    <div class="h-2.5 rounded-sm" style="width:25%" :style="'background: linear-gradient(90deg, #2563eb ' + c.components.vereadores + '%, #e5e7eb ' + c.components.vereadores + '%)'"></div>
+                                    <div class="h-2.5 rounded-sm" style="width:20%" :style="'background: linear-gradient(90deg, #2563eb ' + c.components.directory + '%, #e5e7eb ' + c.components.directory + '%)'"></div>
+                                    <div class="h-2.5 rounded-sm" style="width:15%" :style="'background: linear-gradient(90deg, #2563eb ' + c.components.contacts + '%, #e5e7eb ' + c.components.contacts + '%)'"></div>
+                                    <div class="h-2.5 rounded-sm" style="width:15%" :style="'background: linear-gradient(90deg, #2563eb ' + c.components.engagement + '%, #e5e7eb ' + c.components.engagement + '%)'"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tabela Estratégica -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'estrategico' && strategicData">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">
+                Análise Estratégica por Cidade
+                <span class="text-gray-400 font-normal" x-text="'(' + strategicFiltered.length + ' cidades)'"></span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <select x-model="strategicSort" class="text-xs border rounded px-2 py-1 text-gray-600">
+                    <option value="score_desc">Score (maior)</option>
+                    <option value="score_asc">Score (menor)</option>
+                    <option value="name_asc">Nome (A-Z)</option>
+                    <option value="penetration_desc">Penetração (maior)</option>
+                    <option value="votes_desc">Votos 2022 (maior)</option>
+                </select>
+                <button x-show="strategicFilter" @click="strategicFilter = ''"
+                        class="text-xs text-primary-600 hover:text-primary-800">Limpar filtro</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-left" title="Nome do município">Cidade</th>
+                        <th class="text-left" title="Associação de municípios à qual a cidade pertence">Região</th>
+                        <th class="text-center" title="Base Forte, Aliado Fraco, Potencial Oculto, Território Hostil ou Neutro">Classificação</th>
+                        <th class="text-right" title="Nota de 0 a 100 baseada em alinhamento político (30%), penetração 2022 (35%), vereadores PL (20%) e estrutura PL (15%)">Score</th>
+                        <th class="text-left" title="Nome do prefeito atual da cidade">Prefeito</th>
+                        <th class="text-left" title="Partido do prefeito atual">Partido</th>
+                        <th class="text-right" title="Número de vereadores do PL sobre o total de vereadores da câmara">Vereadores PL</th>
+                        <th class="text-right" title="Votos de Leandro Sorgatto na cidade em 2022">Votos LS 2022</th>
+                        <th class="text-right" title="Percentual de votos LS 2022 sobre o total de eleitores da cidade">Penetração</th>
+                        <th class="text-right" title="Quantidade de contatos ativos cadastrados nesta cidade">Contatos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in strategicFiltered" :key="c.slug">
+                        <tr class="clickable" @click="window.location.href='/cidade/' + c.slug + '/?mapa=' + mapMode">
+                            <td class="text-left font-semibold" x-text="c.name"></td>
+                            <td class="text-left text-xs text-gray-500" x-text="c.region_name"></td>
+                            <td class="text-center">
+                                <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                                      :style="'background:' + strategicClassColor(c.classification) + '20;color:' + strategicClassColor(c.classification)"
+                                      x-text="strategicClassLabel(c.classification)"></span>
+                            </td>
+                            <td class="text-right tabular-nums font-bold" x-text="c.score"></td>
+                            <td class="text-left text-xs" x-text="c.mayor_name || '-'"></td>
+                            <td class="text-left text-xs" x-text="c.mayor_party || '-'"></td>
+                            <td class="text-right tabular-nums text-xs" x-text="c.num_vereadores_pl + '/' + c.num_vereadores"></td>
+                            <td class="text-right tabular-nums" x-text="(c.votes_2022 || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="c.penetration.toFixed(2) + '%'"></td>
+                            <td class="text-right tabular-nums" x-text="c.contacts || 0"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ==================== ELEIÇÕES 2022 ==================== -->
+
+    <!-- Legenda Eleições 2022 -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'eleicoes_2022'">
+        <div class="flex items-center gap-4 flex-wrap">
+            <span class="text-sm font-semibold text-gray-700">Posição LS — Dep. Federal 2022</span>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#15803d"></span><span class="text-xs text-gray-600">1º Lugar</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#22c55e"></span><span class="text-xs text-gray-600">Top 3</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#eab308"></span><span class="text-xs text-gray-600">Top 5</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#f97316"></span><span class="text-xs text-gray-600">Top 10</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#ef4444"></span><span class="text-xs text-gray-600">11º+</span></div>
+        </div>
+        <div class="flex items-center gap-4 mt-2 text-xs text-gray-400" x-show="elections2022Data">
+            <span>Total votos LS: <span x-text="(elections2022Data?.summary?.total_ls_votes || 0).toLocaleString('pt-BR')" class="font-semibold"></span></span>
+            <span>Posição média: <span x-text="elections2022Data?.summary?.avg_position + 'º'" class="font-semibold"></span></span>
+            <span><span x-text="elections2022Data?.summary?.total_cities || 0" class="font-semibold"></span> cidades</span>
+            <span><span x-text="elections2022Data?.summary?.total_zones || 0" class="font-semibold"></span> zonas eleitorais</span>
+        </div>
+    </div>
+
+    <!-- Cards performance Eleições 2022 -->
+    <div class="grid grid-cols-5 gap-2 mb-4" x-show="mapMode === 'eleicoes_2022' && elections2022Data">
+        <template x-for="perf in ['primeiro', 'top3', 'top5', 'top10', 'abaixo']" :key="perf">
+            <div class="rounded-xl shadow-md p-4 cursor-pointer transition-all"
+                 :class="elections2022Filter === perf ? 'ring-2 ring-primary-500' : ''"
+                 :style="'background:' + elections2022PerfColor(perf) + '20; border-left: 4px solid ' + elections2022PerfColor(perf)"
+                 @click="elections2022Filter = elections2022Filter === perf ? '' : perf">
+                <div class="text-2xl font-black" :style="'color:' + elections2022PerfColor(perf)" x-text="elections2022Count(perf)"></div>
+                <div class="text-xs font-medium text-gray-600" x-text="elections2022PerfLabel(perf)"></div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Tabela Cidades Eleições 2022 -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'eleicoes_2022' && elections2022Data">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold">Posição LS por Cidade — Dep. Federal 2022</h3>
+            <span class="text-xs text-gray-400" x-text="elections2022Filtered.length + ' cidades'"></span>
+        </div>
+        <div class="overflow-x-auto" style="max-height: 600px; overflow-y: auto">
+            <table class="data-table">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th style="width:1%" class="text-center cursor-pointer" @click="elections2022Sort = elections2022Sort === 'position_asc' ? 'position_desc' : 'position_asc'">Pos.</th>
+                        <th class="text-left cursor-pointer" @click="elections2022Sort = elections2022Sort === 'name_asc' ? 'name_desc' : 'name_asc'">Cidade</th>
+                        <th class="text-left cursor-pointer" @click="elections2022Sort = elections2022Sort === 'region_asc' ? 'region_desc' : 'region_asc'">Região</th>
+                        <th style="width:1%" class="text-right cursor-pointer" @click="elections2022Sort = elections2022Sort === 'votes_desc' ? 'votes_asc' : 'votes_desc'">Votos LS</th>
+                        <th style="width:1%" class="text-right cursor-pointer" @click="elections2022Sort = elections2022Sort === 'pct_desc' ? 'pct_asc' : 'pct_desc'">% LS</th>
+                        <th style="width:1%" class="text-center">Performance</th>
+                        <th class="text-left">1º Lugar</th>
+                        <th style="width:1%" class="text-right">Votos 1º</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in elections2022Filtered" :key="c.slug">
+                        <tr class="hover:bg-gray-50">
+                            <td class="text-center font-bold tabular-nums" :style="'color:' + elections2022PerfColor(c.performance)" x-text="c.ls_position + 'º'"></td>
+                            <td class="text-left font-medium" x-text="c.name"></td>
+                            <td class="text-left text-gray-500 text-xs" x-text="c.region"></td>
+                            <td class="text-right tabular-nums font-semibold" x-text="c.ls_votes.toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="c.ls_pct.toFixed(2) + '%'"></td>
+                            <td class="text-center">
+                                <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                                      :style="'background:' + elections2022PerfColor(c.performance) + '20; color:' + elections2022PerfColor(c.performance)"
+                                      x-text="elections2022PerfLabel(c.performance)"></span>
+                            </td>
+                            <td class="text-left text-gray-600 text-xs" x-text="c.first_name"></td>
+                            <td class="text-right tabular-nums text-gray-400" x-text="c.first_votes.toLocaleString('pt-BR')"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Zonas Eleitorais — Resumo -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'eleicoes_2022' && elections2022Data && (elections2022Data.zones || []).length > 0">
+        <h3 class="text-sm font-semibold mb-3">Votos LS por Zona Eleitoral</h3>
+        <div class="overflow-x-auto" style="max-height: 400px; overflow-y: auto">
+            <table class="data-table w-full">
+                <thead class="sticky top-0 bg-white">
+                    <tr>
+                        <th class="text-left">Zona</th>
+                        <th class="text-right">Votos LS</th>
+                        <th class="text-left" style="width:60%">Barra</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="z in elections2022Data.zones" :key="z.zone_number">
+                        <tr class="hover:bg-gray-50">
+                            <td class="font-medium" x-text="'Zona ' + z.zone_number"></td>
+                            <td class="text-right tabular-nums font-semibold" x-text="z.votes.toLocaleString('pt-BR')"></td>
+                            <td>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div class="h-3 rounded-full bg-primary-600 transition-all"
+                                         :style="'width:' + Math.min(z.votes / Math.max(...elections2022Data.zones.map(zz => zz.votes)) * 100, 100) + '%'"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tabela Regiões -->
+    <div class="bg-white rounded-xl shadow-md p-4" x-show="currentLevel === 'state' && mapMode !== 'estrategico' && mapMode !== 'rede_pl' && mapMode !== 'zonas' && mapMode !== 'transferencia' && mapMode !== 'deputados' && mapMode !== 'eleicoes_2022'">
+        <h3 class="text-sm font-semibold mb-3">Regiões (21 Associações de Municípios)</h3>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full">
+                <thead>
+                    <tr>
+                        <th class="text-left" title="Nome da associação de municípios (21 regiões de SC)">Região</th>
+                        <th class="text-left" title="Agrupamento geográfico das regiões (8 macro regiões)">Macro Região</th>
+                        <th class="text-right" title="Total de votos que Leandro Sorgatto recebeu na região em 2022">Votos LS 2022</th>
+                        <th class="text-right" title="População estimada da região">População</th>
+                        <th class="text-right" title="Quantidade de contatos ativos cadastrados na região">Contatos</th>
+                        <th class="text-right" title="Meta de votos para a eleição de 2026 na região">Meta Votos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="r in data.regions || []" :key="r.slug">
+                        <tr class="clickable" @click="zoomToRegion(r.slug)">
+                            <td class="text-left">
+                                <span class="inline-block w-3 h-3 rounded-full mr-2" :style="'background:' + r.color"></span>
+                                <span x-text="r.name" class="font-semibold"></span>
+                            </td>
+                            <td x-text="r.macro_region_name" class="text-left text-gray-500 text-xs"></td>
+                            <td class="text-right tabular-nums" x-text="(r.total_votes_2022 || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="(r.population || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="r.total_contacts || 0"></td>
+                            <td class="text-right tabular-nums" x-text="(r.meta_votes || 0).toLocaleString('pt-BR')"></td>
+                        </tr>
+                    </template>
+                </tbody>
+                <tfoot>
+                    <tr class="font-bold bg-gray-50 border-t-2 border-gray-300">
+                        <td class="text-left" colspan="2">Total</td>
+                        <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.total_votes_2022 || 0), 0).toLocaleString('pt-BR')"></td>
+                        <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.population || 0), 0).toLocaleString('pt-BR')"></td>
+                        <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.total_contacts || 0), 0).toLocaleString('pt-BR')"></td>
+                        <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.meta_votes || 0), 0).toLocaleString('pt-BR')"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/map/sc-map.js' %}"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
+{% endblock %}

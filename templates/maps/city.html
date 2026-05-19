@@ -1,0 +1,521 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cidade{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="cityApp('{{ city_slug }}')" x-init="init()">
+    <!-- Breadcrumb -->
+    <nav class="mb-4 text-sm text-gray-500">
+        <a href="/" class="hover:text-primary-600">Dashboard</a>
+        <template x-if="mapaLabel()">
+            <span>
+                <span class="mx-2">/</span>
+                <a :href="'/?' + (mapaParam ? 'mapa=' + mapaParam : '')" class="hover:text-primary-600" x-text="mapaLabel()"></a>
+            </span>
+        </template>
+        <span class="mx-2">/</span>
+        <a :href="'/regiao/' + data.city?.region_slug + '/' + (mapaParam ? '?mapa=' + mapaParam : '')" class="hover:text-primary-600" x-text="data.city?.region"></a>
+        <span class="mx-2">/</span>
+        <span x-text="data.city?.name" class="text-gray-800 font-medium"></span>
+    </nav>
+
+    <!-- Info da Cidade -->
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6" x-text="data.city?.name"></h2>
+
+        <!-- Destaques: Votos e Meta -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-primary-50 rounded-lg p-4">
+                <div class="text-sm text-primary-600" title="Total de votos que Leandro Sorgatto recebeu nesta cidade na eleição de 2022">Votos Sorgatto 2022</div>
+                <div class="text-2xl font-bold text-primary-900" x-text="(data.city?.votes_sorgatto_2022 || 0).toLocaleString('pt-BR')"></div>
+            </div>
+            <div class="bg-green-50 rounded-lg p-4">
+                <div class="text-sm text-green-600" title="Meta de votos definida para esta cidade na eleição de 2026">Meta 2026</div>
+                <div class="text-2xl font-bold text-green-800" x-text="(data.city?.meta_votes || 0).toLocaleString('pt-BR')"></div>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-4">
+                <div class="text-sm text-blue-600" title="População estimada do município">População</div>
+                <div class="text-2xl font-bold text-blue-900" x-text="(data.city?.population || 0).toLocaleString('pt-BR')"></div>
+            </div>
+            <div class="bg-orange-50 rounded-lg p-4">
+                <div class="text-sm text-orange-600" title="Total de eleitores aptos a votar registrados na cidade">Eleitores</div>
+                <div class="text-2xl font-bold text-orange-900" x-text="(data.city?.registered_voters || 0).toLocaleString('pt-BR')"></div>
+            </div>
+        </div>
+
+        <!-- Dados Políticos -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div class="border rounded-lg p-3">
+                <div class="text-xs text-gray-500" title="Prefeito eleito em 2024 e seu partido">Prefeito</div>
+                <div class="text-sm font-bold" x-text="data.city?.mayor_name || '-'"></div>
+                <div class="text-xs text-gray-400" x-text="data.city?.mayor_party || ''"></div>
+            </div>
+            <div class="border rounded-lg p-3">
+                <div class="text-xs text-gray-500" title="Total de vereadores da câmara municipal e quantos são do PL">Vereadores</div>
+                <div class="text-sm font-bold">
+                    <span x-text="data.city?.num_vereadores || 0"></span>
+                    <span class="text-xs text-blue-600 ml-1">(<span x-text="data.city?.num_vereadores_pl || 0"></span> PL)</span>
+                </div>
+            </div>
+            <div class="border rounded-lg p-3">
+                <div class="text-xs text-gray-500" title="Responsável pela executiva municipal do PL na cidade">Presidente Executiva PL</div>
+                <div class="text-sm font-bold" x-text="data.city?.pl_executive_president || '-'"></div>
+            </div>
+            <div class="border rounded-lg p-3">
+                <div class="text-xs text-gray-500" title="Principais atividades econômicas do município">Matriz Econômica</div>
+                <div class="text-sm font-bold" x-text="data.city?.economic_matrix || '-'"></div>
+            </div>
+            <div class="border rounded-lg p-3">
+                <div class="text-xs text-gray-500" title="Agrupamento geográfico da região no estado">Macro Região</div>
+                <div class="text-sm font-bold" x-text="data.city?.macro_region || '-'"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards Contatos -->
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-primary-900" x-text="data.coordenadores || 0"></div>
+            <div class="text-sm text-gray-500" title="Coordenadores regionais, municipais e de bairro ativos nesta cidade">Coordenadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-green-600" x-text="data.apoiadores || 0"></div>
+            <div class="text-sm text-gray-500" title="Apoiadores declarados cadastrados nesta cidade">Apoiadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-gray-800" x-text="data.total_contatos || 0"></div>
+            <div class="text-sm text-gray-500" title="Soma de todos os contatos ativos nesta cidade">Total Contatos</div>
+        </div>
+    </div>
+
+    <!-- ==================== ESTRATÉGICO: Badge + Score ==================== -->
+    <div class="space-y-6 mb-6" x-show="mapIs('estrategico') && s.classification">
+        <h2 class="text-xl font-bold text-gray-800">Análise Estratégica</h2>
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-4">
+                    <span class="text-3xl font-black px-4 py-2 rounded-lg border-2"
+                          :class="classBg(s.classification)" x-text="s.classification_label"></span>
+                    <div>
+                        <div class="text-sm text-gray-500">Score Composto</div>
+                        <div class="text-4xl font-black" :style="'color:' + classColor(s.classification)">
+                            <span x-text="s.score?.total || 0"></span><span class="text-lg text-gray-400">/100</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-500">Alinhamento</div>
+                    <div class="text-lg font-bold" :class="alignColor(s.structure?.alignment)" x-text="s.structure?.alignment_label"></div>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <template x-for="comp in s.score?.components || []" :key="comp.label">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-600" x-text="comp.label"></span>
+                            <span class="font-mono font-bold" x-text="comp.weighted + '/' + comp.max + ' pts'"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="h-3 rounded-full transition-all duration-500" :style="'width:' + scoreBarWidth(comp) + ';background:' + classColor(s.classification)"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+        <!-- Recomendações -->
+        <template x-if="(s.recommendations || []).length > 0">
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Recomendações Estratégicas</h3>
+                <div class="space-y-3">
+                    <template x-for="(rec, i) in s.recommendations" :key="i">
+                        <div class="flex items-start gap-3 p-3 rounded-lg border-l-4" :class="priorityColor(rec.priority)">
+                            <svg class="w-5 h-5 mt-0.5 flex-shrink-0" :class="rec.priority === 'urgent' ? 'text-red-600' : rec.priority === 'high' ? 'text-orange-500' : 'text-gray-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-html="iconSvg(rec.icon)"></svg>
+                            <span class="text-sm flex-1" x-text="rec.text"></span>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" :class="priorityBadge(rec.priority)" x-text="priorityLabel(rec.priority)"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- ==================== POTENCIAL ELEITORAL (calor, estrategico) ==================== -->
+    <div class="mb-6" x-show="mapIs('calor', 'estrategico') && s.potential">
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-800">Potencial Eleitoral</h3>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-blue-50 rounded-lg p-3">
+                    <div class="text-xs text-blue-600">Votos LS 2022</div>
+                    <div class="text-xl font-bold text-blue-900" x-text="(s.potential?.votes_2022 || 0).toLocaleString('pt-BR')"></div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-3">
+                    <div class="text-xs text-green-600">Meta 2026</div>
+                    <div class="text-xl font-bold text-green-800" x-text="(s.potential?.meta_2026 || 0).toLocaleString('pt-BR')"></div>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Votos necessários</span>
+                    <span class="font-bold text-orange-600" x-text="'+' + (s.potential?.votes_needed || 0).toLocaleString('pt-BR')"></span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Crescimento necessário</span>
+                    <span class="font-bold" :class="s.potential?.growth_pct > 100 ? 'text-red-600' : 'text-orange-600'" x-text="'+' + (s.potential?.growth_pct || 0) + '%'"></span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Penetração 2022</span>
+                    <span class="font-bold" x-text="(s.potential?.penetration || 0) + '%'"></span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Média estadual</span>
+                    <span class="font-bold text-gray-500" x-text="(s.potential?.avg_penetration || 0) + '%'"></span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-sm text-gray-600">Ranking na região</span>
+                    <span class="font-bold" x-text="s.potential?.region_ranking + 'º de ' + s.potential?.region_total_cities"></span>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Progresso para meta 2026</span>
+                    <span x-text="s.potential?.meta_2026 > 0 ? Math.min(Math.round(s.potential?.votes_2022 / s.potential?.meta_2026 * 100), 100) + '%' : '0%'"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="h-3 rounded-full bg-primary-600 transition-all duration-500" :style="'width:' + (s.potential?.meta_2026 > 0 ? Math.min(s.potential?.votes_2022 / s.potential?.meta_2026 * 100, 100) : 0) + '%'"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ESTRUTURA POLÍTICA (rede_pl, estrategico) ==================== -->
+    <div class="mb-6" x-show="mapIs('rede_pl', 'estrategico') && s.structure">
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-800">Estrutura Política</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Prefeito</span>
+                    <div class="text-right">
+                        <span class="font-bold" x-text="s.structure?.mayor_name || '-'"></span>
+                        <span class="text-xs ml-1 px-1.5 py-0.5 rounded" :class="s.structure?.alignment === 'allied' ? 'bg-green-100 text-green-700' : s.structure?.alignment === 'adversary' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'" x-text="s.structure?.mayor_party || '-'"></span>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Alinhamento</span>
+                    <span class="font-bold" :class="alignColor(s.structure?.alignment)" x-text="s.structure?.alignment_label"></span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Vereadores PL</span>
+                    <span class="font-bold"><span x-text="s.structure?.num_vereadores_pl || 0" class="text-primary-900"></span> <span class="text-gray-400">/ <span x-text="s.structure?.num_vereadores || 0"></span></span></span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Presidente Executiva PL</span>
+                    <span class="font-bold" :class="s.structure?.pl_executive_president ? 'text-green-700' : 'text-red-500'" x-text="s.structure?.pl_executive_president || 'Sem presidente'"></span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-sm text-gray-600">Coordenador Municipal</span>
+                    <span class="font-bold" :class="s.structure?.has_coordinator ? 'text-green-700' : 'text-red-500'" x-text="s.structure?.has_coordinator ? s.structure.coordinator_name : 'Sem coordenador'"></span>
+                </div>
+            </div>
+            <div class="mt-4 grid grid-cols-4 gap-2">
+                <div class="text-center p-2 rounded-lg" :class="s.structure?.alignment === 'allied' ? 'bg-green-100' : 'bg-gray-100'">
+                    <div class="text-lg" x-text="s.structure?.alignment === 'allied' ? '✓' : '✗'"></div>
+                    <div class="text-xs text-gray-500">Prefeito</div>
+                </div>
+                <div class="text-center p-2 rounded-lg" :class="s.structure?.num_vereadores_pl > 0 ? 'bg-green-100' : 'bg-gray-100'">
+                    <div class="text-lg" x-text="s.structure?.num_vereadores_pl > 0 ? '✓' : '✗'"></div>
+                    <div class="text-xs text-gray-500">Vereadores</div>
+                </div>
+                <div class="text-center p-2 rounded-lg" :class="s.structure?.pl_executive_president ? 'bg-green-100' : 'bg-gray-100'">
+                    <div class="text-lg" x-text="s.structure?.pl_executive_president ? '✓' : '✗'"></div>
+                    <div class="text-xs text-gray-500">Executiva</div>
+                </div>
+                <div class="text-center p-2 rounded-lg" :class="s.structure?.has_coordinator ? 'bg-green-100' : 'bg-gray-100'">
+                    <div class="text-lg" x-text="s.structure?.has_coordinator ? '✓' : '✗'"></div>
+                    <div class="text-xs text-gray-500">Coordenador</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ANÁLISE ELEITORAL COMPARATIVA (estrategico) ==================== -->
+    <div class="mb-6" x-show="mapIs('estrategico') && (s.electoral_comparison?.top_candidates || []).length > 0">
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Análise Eleitoral Comparativa <span class="text-sm font-normal text-gray-400" x-text="'(' + s.electoral_comparison?.election_type + ' 2022)'"></span></h3>
+                <template x-if="s.electoral_comparison?.ls_result">
+                    <div class="text-right">
+                        <div class="text-xs text-gray-500">Posição LS</div>
+                        <div class="text-2xl font-black text-primary-900" x-text="s.electoral_comparison.ls_result.position + 'º'"></div>
+                    </div>
+                </template>
+            </div>
+            <template x-if="s.electoral_comparison?.gap_to_first > 0 && s.electoral_comparison?.ls_result">
+                <div class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                    <span class="text-sm">Gap para 1º: <span class="font-bold text-orange-700" x-text="s.electoral_comparison.gap_to_first.toLocaleString('pt-BR') + ' votos'"></span></span>
+                </div>
+            </template>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead><tr class="bg-gray-50 text-left"><th class="px-3 py-2">#</th><th class="px-3 py-2">Candidato</th><th class="px-3 py-2">Partido</th><th class="px-3 py-2 text-right">Votos</th><th class="px-3 py-2 text-right">%</th></tr></thead>
+                    <tbody>
+                        <template x-for="c in s.electoral_comparison?.top_candidates || []" :key="c.number">
+                            <tr class="border-b hover:bg-gray-50" :class="c.is_sorgatto ? 'bg-yellow-50 font-bold border-t-2 border-yellow-300' : ''">
+                                <td class="px-3 py-2 text-gray-500" x-text="c.position + 'º'"></td>
+                                <td class="px-3 py-2"><span x-text="c.name"></span><span x-show="c.is_sorgatto" class="ml-1 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">LS</span></td>
+                                <td class="px-3 py-2"><span class="text-xs px-1.5 py-0.5 rounded" :class="c.is_allied ? 'bg-green-100 text-green-700' : c.is_adversary ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'" x-text="c.party"></span></td>
+                                <td class="px-3 py-2 text-right font-mono" x-text="c.votes.toLocaleString('pt-BR')"></td>
+                                <td class="px-3 py-2 text-right font-mono" x-text="c.percentage.toFixed(2) + '%'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== INDICADORES DE ATIVIDADE (demandas, roteiros, estrategico) ==================== -->
+    <div class="mb-6" x-show="mapIs('demandas', 'roteiros', 'estrategico') && s.activity">
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold mb-4 text-gray-800">Indicadores de Atividade</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div class="rounded-lg p-3" :class="s.activity?.contact_coverage >= 1 ? 'bg-green-50' : s.activity?.contact_coverage >= 0.5 ? 'bg-yellow-50' : 'bg-red-50'">
+                    <div class="text-xs" :class="s.activity?.contact_coverage >= 1 ? 'text-green-600' : s.activity?.contact_coverage >= 0.5 ? 'text-yellow-600' : 'text-red-600'">Cobertura de Contatos</div>
+                    <div class="text-xl font-bold" x-text="(s.activity?.contact_coverage || 0).toFixed(2) + '%'"></div>
+                    <div class="text-xs text-gray-400" x-text="(s.activity?.total_contacts || 0) + ' / ' + (data.city?.registered_voters || 0).toLocaleString('pt-BR')"></div>
+                </div>
+                <div class="rounded-lg p-3" :class="s.activity?.demands_overdue > 0 ? 'bg-red-50' : 'bg-green-50'">
+                    <div class="text-xs" :class="s.activity?.demands_overdue > 0 ? 'text-red-600' : 'text-green-600'">Demandas</div>
+                    <div class="text-xl font-bold"><span x-text="s.activity?.demands_completed || 0" class="text-green-600"></span><span class="text-gray-400">/</span><span x-text="s.activity?.demands_total || 0"></span></div>
+                    <div class="text-xs text-gray-400"><span x-show="s.activity?.demands_overdue > 0" class="text-red-600 font-bold" x-text="s.activity?.demands_overdue + ' em atraso'"></span><span x-show="!s.activity?.demands_total">Nenhuma demanda</span></div>
+                </div>
+                <div class="rounded-lg p-3" :class="s.activity?.visits_total > 0 ? 'bg-blue-50' : 'bg-gray-50'">
+                    <div class="text-xs" :class="s.activity?.visits_total > 0 ? 'text-blue-600' : 'text-gray-500'">Visitas</div>
+                    <div class="text-xl font-bold" x-text="s.activity?.visits_completed || 0"></div>
+                    <div class="text-xs text-gray-400" x-text="s.activity?.visits_total > 0 ? s.activity.visits_total + ' no total' : 'Nenhuma visita'"></div>
+                </div>
+                <div class="rounded-lg p-3" :class="s.activity?.days_since_visit !== null && s.activity?.days_since_visit <= 30 ? 'bg-green-50' : 'bg-red-50'">
+                    <div class="text-xs" :class="s.activity?.days_since_visit !== null && s.activity?.days_since_visit <= 30 ? 'text-green-600' : 'text-red-600'">Última Visita</div>
+                    <div class="text-xl font-bold" x-text="s.activity?.days_since_visit !== null ? s.activity.days_since_visit + ' dias' : '-'"></div>
+                    <div class="text-xs text-gray-400" x-text="formatDate(s.activity?.last_visit_date)"></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Interações registradas</span>
+                    <span class="font-bold" x-text="s.activity?.interactions_count || 0"></span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b">
+                    <span class="text-sm text-gray-600">Última interação</span>
+                    <span class="font-bold text-sm" x-text="s.activity?.last_interaction ? new Date(s.activity.last_interaction).toLocaleDateString('pt-BR') : 'Sem registro'"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TRANSFERÊNCIA: Articulação + Barras ==================== -->
+    <div class="space-y-6 mb-6" x-show="mapIs('transferencia') && data.allies && data.allies.deputies && data.allies.deputies.length > 0">
+        <h2 class="text-xl font-bold text-gray-800">Articulação — Transferência de Votos</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Potencial de Articulação</h3>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-blue-50 rounded-lg p-3">
+                        <div class="text-xs text-blue-600">Jorginho Melo</div>
+                        <div class="text-xl font-bold text-blue-900" x-text="(data.allies?.jorginho?.votes || 0).toLocaleString('pt-BR')"></div>
+                        <div class="text-xs text-blue-500" x-text="(data.allies?.jorginho?.pct || 0) + '% dos votos'"></div>
+                    </div>
+                    <div class="bg-pink-50 rounded-lg p-3">
+                        <div class="text-xs text-pink-600">Carol De Toni</div>
+                        <div class="text-xl font-bold text-pink-900" x-text="(data.allies?.carol?.votes || 0).toLocaleString('pt-BR')"></div>
+                        <div class="text-xs text-pink-500" x-text="(data.allies?.carol?.pct || 0) + '% dos votos'"></div>
+                    </div>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-sm text-gray-600">Captura JM → LS</span><span class="font-bold" :class="data.allies?.capture_rate_jm >= 5 ? 'text-green-600' : 'text-red-600'" x-text="(data.allies?.capture_rate_jm || 0) + '%'"></span></div>
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-sm text-gray-600">Gap Jorginho → LS</span><span class="font-bold text-orange-600" x-text="(data.allies?.gap_jm || 0).toLocaleString('pt-BR') + ' votos'"></span></div>
+                    <div class="flex justify-between items-center py-2"><span class="text-sm text-gray-600">Potencial estimado</span><span class="font-bold text-green-700" x-text="'+' + (data.allies?.potential_from_gap || 0).toLocaleString('pt-BR') + ' votos'"></span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Comparativo LS × Candidatos PL</h3>
+                <div class="space-y-3">
+                    <div><div class="flex justify-between text-sm mb-1"><span class="text-gray-600">JORGINHO MELLO</span><span class="font-mono font-bold text-blue-700" x-text="(data.allies?.jorginho?.pct || 0) + '%'"></span></div><div class="w-full bg-gray-200 rounded-full h-4"><div class="h-4 rounded-full bg-blue-500" :style="'width:' + Math.min((data.allies?.jorginho?.pct || 0), 100) + '%'"></div></div></div>
+                    <div><div class="flex justify-between text-sm mb-1"><span class="text-gray-600">CAROL DE TONI</span><span class="font-mono font-bold text-pink-600" x-text="(data.allies?.carol?.pct || 0) + '%'"></span></div><div class="w-full bg-gray-200 rounded-full h-4"><div class="h-4 rounded-full bg-pink-400" :style="'width:' + Math.min((data.allies?.carol?.pct || 0), 100) + '%'"></div></div></div>
+                    <div class="border-t-2 border-yellow-300 pt-2"><div class="flex justify-between text-sm mb-1"><span class="font-bold text-yellow-700">SORATTO (LS)</span><span class="font-mono font-bold text-yellow-700" x-text="(data.allies?.ls_pct || 0) + '%'"></span></div><div class="w-full bg-gray-200 rounded-full h-4"><div class="h-4 rounded-full bg-yellow-500" :style="'width:' + Math.max(Math.min((data.allies?.ls_pct || 0), 100), 0.5) + '%'"></div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== DEPUTADOS ALIADOS (deputados) ==================== -->
+    <div class="space-y-6 mb-6" x-show="mapIs('deputados') && data.allies && data.allies.deputies && data.allies.deputies.length > 0">
+        <h2 class="text-xl font-bold text-gray-800">Deputados Aliados na Cidade</h2>
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
+            <div class="flex items-start gap-3">
+                <svg class="w-6 h-6 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <div>
+                    <div class="font-bold text-amber-900 text-sm mb-1">Resumo Estratégico</div>
+                    <p class="text-sm text-amber-800">
+                        <span x-text="data.city?.name"></span>:
+                        <span x-show="data.city?.mayor_party === 'PL'">Prefeito PL + </span>
+                        <span x-show="data.city?.num_vereadores_pl > 0" x-text="data.city?.num_vereadores_pl + ' vereador(es) PL + '"></span>
+                        <span x-text="(data.allies?.jorginho?.votes || 0).toLocaleString('pt-BR') + ' votos Jorginho'"></span>
+                        = <strong>base PL expressiva</strong>.
+                        <template x-if="data.allies?.bridge_deputy"><span>Dep. ponte: <strong x-text="data.allies.bridge_deputy"></strong>.</span></template>
+                        Taxa de captura LS: <strong x-text="data.allies?.capture_rate_jm + '%'"></strong>.
+                        <template x-if="data.allies?.potential_from_gap > 0"><span>Potencial: <strong class="text-green-700" x-text="'+' + data.allies.potential_from_gap.toLocaleString('pt-BR') + ' votos'"></strong>.</span></template>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Potencial de Articulação</h3>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-blue-50 rounded-lg p-3"><div class="text-xs text-blue-600">Jorginho Melo</div><div class="text-xl font-bold text-blue-900" x-text="(data.allies?.jorginho?.votes || 0).toLocaleString('pt-BR')"></div></div>
+                    <div class="bg-pink-50 rounded-lg p-3"><div class="text-xs text-pink-600">Carol De Toni</div><div class="text-xl font-bold text-pink-900" x-text="(data.allies?.carol?.votes || 0).toLocaleString('pt-BR')"></div></div>
+                </div>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-sm text-gray-600">Total votos dep. PL</span><span class="font-bold text-blue-700" x-text="(data.allies?.total_dep_pl_votes || 0).toLocaleString('pt-BR')"></span></div>
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-sm text-gray-600">Votos LS</span><span class="font-bold" x-text="(data.allies?.ls_votes || 0).toLocaleString('pt-BR')"></span></div>
+                    <div class="flex justify-between items-center py-2 border-b"><span class="text-sm text-gray-600">Captura JM → LS</span><span class="font-bold" :class="data.allies?.capture_rate_jm >= 5 ? 'text-green-600' : 'text-red-600'" x-text="(data.allies?.capture_rate_jm || 0) + '%'"></span></div>
+                    <div class="flex justify-between items-center py-2"><span class="text-sm text-gray-600">Gap Jorginho → LS</span><span class="font-bold text-orange-600" x-text="(data.allies?.gap_jm || 0).toLocaleString('pt-BR') + ' votos'"></span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <h3 class="text-lg font-semibold mb-4 text-gray-800">Comparativo LS × Deputados PL</h3>
+                <div class="space-y-3">
+                    <div><div class="flex justify-between text-sm mb-1"><span class="text-gray-600">JORGINHO MELLO <span class="text-xs text-gray-400">(Gov.)</span></span><span class="font-mono font-bold text-blue-700" x-text="(data.allies?.jorginho?.votes || 0).toLocaleString('pt-BR') + ' (' + (data.allies?.jorginho?.pct || 0) + '%)'"></span></div><div class="w-full bg-gray-200 rounded-full h-4"><div class="h-4 rounded-full bg-blue-500" :style="'width:' + Math.min((data.allies?.jorginho?.pct || 0), 100) + '%'"></div></div></div>
+                    <div><div class="flex justify-between text-sm mb-1"><span class="text-gray-600">CAROL DE TONI <span class="text-xs text-gray-400">(Dep. Fed.)</span></span><span class="font-mono font-bold text-pink-600" x-text="(data.allies?.carol?.votes || 0).toLocaleString('pt-BR') + ' (' + (data.allies?.carol?.pct || 0) + '%)'"></span></div><div class="w-full bg-gray-200 rounded-full h-4"><div class="h-4 rounded-full bg-pink-400" :style="'width:' + Math.min((data.allies?.carol?.pct || 0), 100) + '%'"></div></div></div>
+                    <template x-for="dep in data.allies?.deputies || []" :key="dep.name"><div><div class="flex justify-between text-sm mb-1"><span class="text-gray-600" x-text="dep.name"></span><span class="font-mono font-bold text-indigo-600" x-text="dep.votes.toLocaleString('pt-BR') + ' (' + dep.pct + '%)'"></span></div><div class="w-full bg-gray-200 rounded-full h-3"><div class="h-3 rounded-full bg-indigo-400" :style="'width:' + Math.min(dep.pct, 100) + '%'"></div></div></div></template>
+                    <div class="border-t-2 border-yellow-300 pt-2"><div class="flex justify-between text-sm mb-1"><span class="font-bold text-yellow-700">SORATTO (LS)</span><span class="font-mono font-bold text-yellow-700" x-text="(data.allies?.ls_votes || 0).toLocaleString('pt-BR') + ' (' + (data.allies?.ls_pct || 0) + '%)'"></span></div><div class="w-full bg-gray-200 rounded-full h-4"><div class="h-4 rounded-full bg-yellow-500" :style="'width:' + Math.max(Math.min((data.allies?.ls_pct || 0), 100), 0.5) + '%'"></div></div></div>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-5">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">Deputados Estaduais PL Eleitos — Votos em <span x-text="data.city?.name"></span></h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead><tr class="bg-gray-50 text-left"><th class="px-3 py-2">#</th><th class="px-3 py-2">Deputado</th><th class="px-3 py-2 text-right">Votos</th><th class="px-3 py-2 text-right">%</th><th class="px-3 py-2 text-right">Total estadual</th><th class="px-3 py-2 text-center">Ponte</th></tr></thead>
+                    <tbody>
+                        <template x-for="(dep, idx) in data.allies?.deputies || []" :key="dep.name">
+                            <tr class="border-b hover:bg-gray-50" :class="dep.name === data.allies?.bridge_deputy ? 'bg-amber-50 font-bold' : ''">
+                                <td class="px-3 py-2 text-gray-500" x-text="idx + 1"></td>
+                                <td class="px-3 py-2"><span x-text="dep.name"></span><span x-show="dep.name === data.allies?.bridge_deputy" class="ml-1 text-xs bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">Ponte</span></td>
+                                <td class="px-3 py-2 text-right font-mono" x-text="dep.votes.toLocaleString('pt-BR')"></td>
+                                <td class="px-3 py-2 text-right font-mono" x-text="dep.pct + '%'"></td>
+                                <td class="px-3 py-2 text-right font-mono text-gray-400" x-text="dep.total_state_votes.toLocaleString('pt-BR')"></td>
+                                <td class="px-3 py-2 text-center"><span x-show="dep.name === data.allies?.bridge_deputy" class="text-amber-600 font-bold">★</span></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <template x-if="(data.allies?.neighbors || []).length > 0">
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Cidades Vizinhas com LS Forte</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="bg-gray-50 text-left"><th class="px-3 py-2">Cidade</th><th class="px-3 py-2 text-right">Dist.</th><th class="px-3 py-2 text-right">Votos LS</th><th class="px-3 py-2 text-right">Penetração</th><th class="px-3 py-2 text-right">Eleitores</th></tr></thead>
+                        <tbody>
+                            <template x-for="n in data.allies?.neighbors || []" :key="n.slug">
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="px-3 py-2"><a :href="'/cidade/' + n.slug + '/?mapa=deputados'" class="font-semibold text-primary-700 hover:underline" x-text="n.name"></a> <span class="text-xs text-gray-400" x-text="n.region"></span></td>
+                                    <td class="px-3 py-2 text-right font-mono text-gray-500" x-text="n.distance_km + ' km'"></td>
+                                    <td class="px-3 py-2 text-right font-mono font-bold text-green-700" x-text="n.votes_ls.toLocaleString('pt-BR')"></td>
+                                    <td class="px-3 py-2 text-right font-mono" :class="n.penetration >= (data.allies?.avg_penetration || 0) ? 'text-green-600 font-bold' : 'text-orange-500'" x-text="n.penetration + '%'"></td>
+                                    <td class="px-3 py-2 text-right font-mono text-gray-400" x-text="n.voters.toLocaleString('pt-BR')"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- ==================== RESULTADOS ELEITORAIS 2022 (regioes) ==================== -->
+    <div class="space-y-6 mb-6" x-show="mapIs('regioes') && data.election_results && Object.keys(data.election_results).length > 0">
+        <h2 class="text-xl font-bold text-gray-800">Resultados Eleitorais 2022</h2>
+        <template x-for="[cargo, resultados] in Object.entries(data.election_results || {})" :key="cargo">
+            <div class="bg-white rounded-xl shadow-md p-4">
+                <h3 class="text-lg font-semibold mb-3 text-primary-900" x-text="cargo"></h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="bg-gray-50 text-left"><th class="px-3 py-2">#</th><th class="px-3 py-2">Candidato</th><th class="px-3 py-2">Partido</th><th class="px-3 py-2 text-right">Votos</th><th class="px-3 py-2 text-right">%</th></tr></thead>
+                        <tbody>
+                            <template x-for="(r, idx) in resultados" :key="r.number">
+                                <tr class="border-b hover:bg-gray-50" :class="r.is_sorgatto ? 'bg-yellow-50 font-bold border-t-2 border-yellow-300' : (r.is_elected ? 'bg-green-50' : '')">
+                                    <td class="px-3 py-2 text-gray-500"><span x-show="r.is_sorgatto && r.position > (idx + 1)" class="text-xs text-gray-400 block">···</span><span x-text="r.position || (idx + 1)"></span></td>
+                                    <td class="px-3 py-2"><span x-text="r.name"></span><span x-show="r.is_sorgatto" class="ml-1 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">SORGATTO</span><span x-show="r.is_elected" class="ml-1 text-xs bg-green-200 text-green-800 px-1.5 py-0.5 rounded">Eleito</span></td>
+                                    <td class="px-3 py-2 text-gray-600 text-xs" x-text="r.party"></td>
+                                    <td class="px-3 py-2 text-right font-mono" x-text="r.votes.toLocaleString('pt-BR')"></td>
+                                    <td class="px-3 py-2 text-right font-mono" x-text="r.percentage.toFixed(2) + '%'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- ==================== VOTOS POR ZONA ELEITORAL (regioes, zonas) ==================== -->
+    <div class="space-y-6 mb-6" x-show="mapIs('regioes', 'zonas') && data.zone_results && data.zone_results.length > 0">
+        <h2 class="text-xl font-bold text-gray-800">Votos por Zona Eleitoral (Dep. Federal 2022)</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <template x-for="zone in data.zone_results" :key="zone.zone_number">
+                <div class="bg-white rounded-xl shadow-md p-4 cursor-pointer hover:shadow-lg" @click="$refs['zone_' + zone.zone_number]?.scrollIntoView({behavior: 'smooth'})">
+                    <div class="text-sm text-gray-500">Zona <span x-text="zone.zone_number" class="font-semibold"></span></div>
+                    <div class="text-2xl font-bold text-primary-900" x-text="(zone.sorgatto_votes || 0).toLocaleString('pt-BR')"></div>
+                    <div class="text-xs text-gray-400">votos Sorgatto</div>
+                </div>
+            </template>
+        </div>
+        <template x-for="zone in data.zone_results" :key="'table_' + zone.zone_number">
+            <div class="bg-white rounded-xl shadow-md p-4" :ref="'zone_' + zone.zone_number">
+                <h3 class="text-lg font-semibold mb-3 text-primary-900">Zona Eleitoral <span x-text="zone.zone_number"></span></h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="bg-gray-50 text-left"><th class="px-3 py-2">#</th><th class="px-3 py-2">Candidato</th><th class="px-3 py-2">Partido</th><th class="px-3 py-2 text-right">Votos</th><th class="px-3 py-2 text-right">%</th></tr></thead>
+                        <tbody>
+                            <template x-for="c in zone.candidates" :key="zone.zone_number + '_' + c.number">
+                                <tr class="border-b hover:bg-gray-50" :class="c.is_sorgatto ? 'bg-yellow-50 font-bold' : ''">
+                                    <td class="px-3 py-2 text-gray-500" x-text="c.number"></td>
+                                    <td class="px-3 py-2"><span x-text="c.name"></span><span x-show="c.is_sorgatto" class="ml-1 text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded">SORGATTO</span></td>
+                                    <td class="px-3 py-2 text-gray-600 text-xs" x-text="c.party"></td>
+                                    <td class="px-3 py-2 text-right font-mono" x-text="c.votes.toLocaleString('pt-BR')"></td>
+                                    <td class="px-3 py-2 text-right font-mono" x-text="c.percentage.toFixed(2) + '%'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Categorias -->
+    <div class="bg-white rounded-xl shadow-md p-4" x-show="!mapIs('eleicoes_2022')">
+        <h3 class="text-lg font-semibold mb-4" title="Distribuição dos contatos cadastrados por tipo: coordenadores, apoiadores, eleitores, etc.">Contatos por Categoria</h3>
+        <div class="space-y-2">
+            <template x-for="cat in data.by_category || []" :key="cat.category">
+                <div class="flex items-center justify-between py-2 border-b">
+                    <span class="capitalize" x-text="cat.category.replace('_', ' ')"></span>
+                    <span class="font-bold" x-text="cat.total"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/map/city-view.js' %}"></script>
+{% endblock %}

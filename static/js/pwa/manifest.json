@@ -1,0 +1,21 @@
+{
+    "name": "CRM Eleitoral - Sorgatto 26",
+    "short_name": "CRM Eleitoral Sorgatto 26",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#002776",
+    "theme_color": "#002776",
+    "orientation": "any",
+    "icons": [
+        {
+            "src": "/static/img/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/static/img/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

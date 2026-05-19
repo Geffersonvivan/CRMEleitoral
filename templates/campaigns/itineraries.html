@@ -1,0 +1,445 @@
+{% extends 'base.html' %}
+
+{% block title %}Roteiros{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Roteiros</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="itinerariesApp()" x-init="init()">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800" title="Planejamento de viagens com paradas em cidades para ações de campo">Roteiros de Viagem</h1>
+        <button @click="openNew()" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium" title="Criar um novo roteiro de viagem">
+            + Novo Roteiro
+        </button>
+
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex gap-2 mb-4">
+        <select x-model="filter" @change="loadData()" class="text-sm border rounded-lg px-3 py-1.5" title="Filtrar roteiros por status">
+            <option value="">Todos</option>
+            <option value="planned">Planejados</option>
+            <option value="confirmed">Confirmados</option>
+            <option value="in_progress">Em Andamento</option>
+            <option value="completed">Concluídos</option>
+        </select>
+    </div>
+
+    <!-- Lista -->
+    <div class="space-y-4">
+        <template x-for="it in itineraries" :key="it.id">
+            <div class="bg-white rounded-xl shadow-md p-5 hover:shadow-lg transition-shadow">
+                <div class="flex items-start justify-between mb-3">
+                    <a :href="'/roteiros/' + it.id + '/'" class="block flex-1">
+                        <h3 class="font-semibold text-lg text-gray-800" x-text="it.name"></h3>
+                        <p class="text-sm text-gray-500" x-text="formatPeriod(it.start_date, it.end_date)"></p>
+                    </a>
+                    <div class="flex items-center gap-2">
+                        <span class="badge text-xs px-2 py-1 rounded-full"
+                              :class="{
+                                  'bg-gray-100 text-gray-600': it.status === 'planned',
+                                  'bg-blue-100 text-blue-700': it.status === 'confirmed',
+                                  'bg-orange-100 text-orange-700': it.status === 'in_progress',
+                                  'bg-green-100 text-green-700': it.status === 'completed',
+                              }"
+                              x-text="statusLabel(it.status)"></span>
+                        <button @click.stop="openEdit(it)" class="text-gray-400 hover:text-primary-600 p-1" title="Editar">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                        <button @click.stop="deleteItinerary(it)" class="text-gray-400 hover:text-red-600 p-1" title="Excluir">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex gap-6 text-sm text-gray-500">
+                    <div x-show="it.origin_city_name" title="Cidade de partida do roteiro">Saída: <span class="font-semibold text-gray-800" x-text="it.origin_city_name"></span></div>
+                    <div title="Número de cidades diferentes visitadas"><span class="font-semibold text-gray-800" x-text="it.cities_count || 0"></span> cidades</div>
+                    <div title="Número total de paradas no roteiro"><span class="font-semibold text-gray-800" x-text="it.stops_count || 0"></span> paradas</div>
+                    <div x-show="it.responsible_name" title="Pessoa responsável pela execução do roteiro">Resp: <span class="font-semibold text-gray-800" x-text="it.responsible_name"></span></div>
+                </div>
+            </div>
+        </template>
+        <div x-show="itineraries.length === 0" class="text-center text-gray-400 py-12">
+            Nenhum roteiro cadastrado
+        </div>
+    </div>
+
+    <!-- Modal Criar/Editar Roteiro -->
+    <div x-show="showModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="showModal = false">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" @click.stop>
+            <h2 class="text-lg font-bold mb-4" x-text="isEditing ? 'Editar Roteiro' : 'Novo Roteiro'"></h2>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Nome</label>
+                    <input x-model="form.name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm mt-1" placeholder="Ex: Roteiro Oeste - Maio 2026">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Data início</label>
+                        <input x-model="form.start_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Data fim</label>
+                        <input x-model="form.end_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Responsável</label>
+                        <select x-model="form.responsible" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="">Nenhum</option>
+                            <template x-for="u in users" :key="u.id">
+                                <option :value="u.id" x-text="u.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Status</label>
+                        <select x-model="form.status" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="planned">Planejado</option>
+                            <option value="confirmed">Confirmado</option>
+                            <option value="in_progress">Em Andamento</option>
+                            <option value="completed">Concluído</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Cidade de saída -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Região de saída</label>
+                        <select x-model="form.origin_region" @change="loadOriginCities()" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="">Selecione</option>
+                            <template x-for="r in regions" :key="r.slug">
+                                <option :value="r.slug" x-text="r.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Cidade de saída</label>
+                        <select x-model="form.origin_city" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="">Selecione</option>
+                            <template x-for="c in originCities" :key="c.id">
+                                <option :value="c.id" x-text="c.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Observações</label>
+                    <textarea x-model="form.notes" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm mt-1"></textarea>
+                </div>
+
+                <!-- Paradas -->
+                <div class="border-t pt-4 mt-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-gray-800" title="Lista de cidades e ações planejadas no roteiro">Paradas</h3>
+                        <button @click="addStop()" type="button" class="text-sm text-primary-600 hover:text-primary-800 font-medium">+ Adicionar Parada</button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <template x-for="(stop, idx) in form.stops" :key="idx">
+                            <div class="bg-gray-50 rounded-lg p-3 border relative">
+                                <button @click="removeStop(idx)" type="button" class="absolute top-2 right-2 text-red-400 hover:text-red-600 text-lg">&times;</button>
+                                <div class="grid grid-cols-4 gap-2 mb-2">
+                                    <div>
+                                        <label class="text-xs text-gray-500">Data</label>
+                                        <input x-model="stop.date" type="date" class="w-full border rounded px-2 py-1.5 text-sm mt-0.5">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">Hora</label>
+                                        <input x-model="stop.scheduled_time" type="text" placeholder="HH:MM"
+                                               maxlength="5"
+                                               @input="stop.scheduled_time = formatTimeInput($event.target.value, $event)"
+                                               @blur="stop.scheduled_time = validateTime(stop.scheduled_time)"
+                                               class="w-full border rounded px-2 py-1.5 text-sm mt-0.5 font-mono text-center">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">Ordem</label>
+                                        <input x-model.number="stop.order" type="number" min="0" class="w-full border rounded px-2 py-1.5 text-sm mt-0.5">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">Deslocamento (min)</label>
+                                        <input x-model.number="stop.travel_minutes" type="number" min="0" class="w-full border rounded px-2 py-1.5 text-sm mt-0.5">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="text-xs text-gray-500">Região</label>
+                                        <select @change="loadStopCities(idx, $event.target.value)" class="w-full border rounded px-2 py-1.5 text-sm mt-0.5">
+                                            <option value="">Selecione</option>
+                                            <template x-for="r in regions" :key="r.slug">
+                                                <option :value="r.slug" x-text="r.name" :selected="stop._region == r.slug"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">Cidade</label>
+                                        <select x-model="stop.city" class="w-full border rounded px-2 py-1.5 text-sm mt-0.5">
+                                            <option value="">Selecione</option>
+                                            <template x-for="c in (stop._cities || [])" :key="c.id">
+                                                <option :value="c.id" x-text="c.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">Demanda</label>
+                                        <select x-model="stop.task" class="w-full border rounded px-2 py-1.5 text-sm mt-0.5">
+                                            <option value="">Nenhuma</option>
+                                            <template x-for="t in tasks" :key="t.id">
+                                                <option :value="t.id" x-text="t.title + (t.city_name ? ' (' + t.city_name + ')' : '')"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4 mt-2">
+                                    <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer" title="Indica se haverá pernoite nesta parada">
+                                        <input type="checkbox" x-model="stop.is_overnight" class="rounded">
+                                        Pernoite
+                                    </label>
+                                    <input x-model="stop.notes" type="text" placeholder="Observações" class="flex-1 border rounded px-2 py-1.5 text-sm">
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="form.stops.length === 0" class="text-center text-gray-400 text-sm py-4">
+                            Nenhuma parada adicionada
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6">
+                <button @click="showModal = false" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button @click="saveItinerary()" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700" x-text="isEditing ? 'Salvar' : 'Criar Roteiro'"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function itinerariesApp() {
+    return {
+        itineraries: [],
+        filter: '',
+        showModal: false,
+        isEditing: false,
+        editingId: null,
+        users: [],
+        regions: [],
+        tasks: [],
+        originCities: [],
+        form: { name: '', start_date: '', end_date: '', responsible: '', status: 'planned', origin_region: '', origin_city: '', notes: '', stops: [] },
+
+        async init() {
+            await Promise.all([this.loadData(), this.loadUsers(), this.loadRegions(), this.loadTasks()]);
+        },
+
+        async loadData() {
+            try {
+                let url = '/api/v1/campaigns/itineraries/';
+                if (this.filter) url += `?status=${this.filter}`;
+                const resp = await API.get(url);
+                this.itineraries = resp.results || resp;
+            } catch (e) { this.itineraries = []; }
+        },
+
+        async loadUsers() {
+            try { this.users = await API.get('/accounts/api/users/'); } catch (e) { this.users = []; }
+        },
+
+        async loadRegions() {
+            try {
+                const resp = await API.get('/api/v1/geo/regions/');
+                this.regions = resp.results || resp;
+            } catch (e) { this.regions = []; }
+        },
+
+        async loadTasks() {
+            try {
+                const resp = await API.get('/api/v1/campaigns/tasks/?limit=500');
+                this.tasks = (resp.results || resp).filter(t => t.phase !== 'completed');
+            } catch (e) { this.tasks = []; }
+        },
+
+        async loadOriginCities() {
+            this.form.origin_city = '';
+            this.originCities = [];
+            if (!this.form.origin_region) return;
+            try {
+                this.originCities = await API.get(`/api/v1/geo/regions/${this.form.origin_region}/cities/`);
+            } catch (e) { this.originCities = []; }
+        },
+
+        openNew() {
+            this.isEditing = false;
+            this.editingId = null;
+            this.originCities = [];
+            this.form = { name: '', start_date: '', end_date: '', responsible: '', status: 'planned', origin_region: '', origin_city: '', notes: '', stops: [] };
+            this.showModal = true;
+        },
+
+        async openEdit(it) {
+            this.isEditing = true;
+            this.editingId = it.id;
+            try {
+                const detail = await API.get(`/api/v1/campaigns/itineraries/${it.id}/`);
+                this.form = {
+                    name: detail.name,
+                    start_date: detail.start_date,
+                    end_date: detail.end_date,
+                    responsible: detail.responsible || '',
+                    status: detail.status,
+                    origin_region: '',
+                    origin_city: detail.origin_city || '',
+                    notes: detail.notes || '',
+                    stops: (detail.stops || []).map(s => ({
+                        id: s.id,
+                        date: s.date,
+                        scheduled_time: s.scheduled_time || '',
+                        order: s.order,
+                        city: s.city,
+                        task: s.task || '',
+                        travel_minutes: s.travel_minutes || 0,
+                        is_overnight: s.is_overnight || false,
+                        notes: s.notes || '',
+                        _region: '',
+                        _cities: [{ id: s.city, name: s.city_name }],
+                    })),
+                };
+                // Carregar cidades de origem se ja tiver origin_city
+                if (detail.origin_city) {
+                    this.originCities = [{ id: detail.origin_city, name: detail.origin_city_name }];
+                } else {
+                    this.originCities = [];
+                }
+                this.showModal = true;
+            } catch (e) { alert('Erro ao carregar roteiro'); }
+        },
+
+        addStop() {
+            this.form.stops.push({
+                date: this.form.start_date || '',
+                scheduled_time: '',
+                order: this.form.stops.length,
+                city: '',
+                task: '',
+                travel_minutes: 0,
+                is_overnight: false,
+                notes: '',
+                _region: '',
+                _cities: [],
+            });
+        },
+
+        removeStop(idx) {
+            this.form.stops.splice(idx, 1);
+        },
+
+        async loadStopCities(idx, regionSlug) {
+            const stop = this.form.stops[idx];
+            stop._region = regionSlug;
+            stop.city = '';
+            if (!regionSlug) { stop._cities = []; return; }
+            try {
+                const resp = await API.get(`/api/v1/geo/regions/${regionSlug}/cities/`);
+                stop._cities = resp || [];
+            } catch (e) { stop._cities = []; }
+        },
+
+        async saveItinerary() {
+            const data = {
+                name: this.form.name,
+                start_date: this.form.start_date,
+                end_date: this.form.end_date,
+                responsible: this.form.responsible || null,
+                status: this.form.status,
+                origin_city: this.form.origin_city ? parseInt(this.form.origin_city) : null,
+                notes: this.form.notes,
+                stops_input: this.form.stops
+                    .filter(s => s.city)
+                    .map(s => ({
+                        ...(s.id ? { id: s.id } : {}),
+                        date: s.date,
+                        scheduled_time: s.scheduled_time || null,
+                        order: s.order || 0,
+                        city: parseInt(s.city),
+                        task: s.task ? parseInt(s.task) : null,
+                        travel_minutes: s.travel_minutes || 0,
+                        is_overnight: s.is_overnight || false,
+                        notes: s.notes || '',
+                    })),
+            };
+
+            try {
+                if (this.isEditing) {
+                    await API.put(`/api/v1/campaigns/itineraries/${this.editingId}/`, data);
+                } else {
+                    await API.post('/api/v1/campaigns/itineraries/', data);
+                }
+                this.showModal = false;
+                await this.loadData();
+            } catch (e) {
+                console.error('Erro ao salvar roteiro:', e);
+                alert('Erro ao salvar roteiro. Verifique os campos.');
+            }
+        },
+
+        async deleteItinerary(it) {
+            if (!confirm(`Excluir roteiro "${it.name}"?`)) return;
+            try {
+                await API.delete(`/api/v1/campaigns/itineraries/${it.id}/`);
+                await this.loadData();
+            } catch (e) { alert('Erro ao excluir'); }
+        },
+
+        formatTimeInput(val, event) {
+            // Permitir apenas digitos e ':'
+            let clean = val.replace(/[^\d]/g, '');
+            // Auto-inserir ':' apos 2 digitos
+            if (clean.length >= 3) {
+                clean = clean.substring(0, 2) + ':' + clean.substring(2, 4);
+            }
+            return clean.substring(0, 5);
+        },
+
+        validateTime(val) {
+            if (!val) return '';
+            // Aceitar formatos: "14", "1430", "14:30", "9:30", "9"
+            let clean = val.replace(/[^\d:]/g, '');
+            let h, m;
+            if (clean.includes(':')) {
+                [h, m] = clean.split(':');
+            } else if (clean.length <= 2) {
+                h = clean; m = '00';
+            } else {
+                h = clean.substring(0, 2);
+                m = clean.substring(2, 4);
+            }
+            h = parseInt(h || 0); m = parseInt(m || 0);
+            if (isNaN(h) || h < 0 || h > 23) return '';
+            if (isNaN(m) || m < 0 || m > 59) m = 0;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        },
+
+        statusLabel(s) {
+            return { planned: 'Planejado', confirmed: 'Confirmado', in_progress: 'Em Andamento', completed: 'Concluído' }[s] || s;
+        },
+        formatPeriod(start, end) {
+            if (!start) return '';
+            const fmt = d => { const [y,m,day] = d.split('-'); return `${day}/${m}`; };
+            return `${fmt(start)} a ${fmt(end)}`;
+        },
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contato{% endblock %}
+
+{% block content %}
+<div x-data="contactDetailApp({{ contact_id }})" x-init="init()">
+    <!-- Breadcrumb -->
+    <nav class="mb-4 text-sm text-gray-500">
+        <a href="/" class="hover:text-primary-600">Dashboard</a>
+        <span class="mx-2">/</span>
+        <a href="/contatos/" class="hover:text-primary-600">Contatos</a>
+        <span class="mx-2">/</span>
+        <span x-text="contact.full_name" class="text-gray-800 font-medium"></span>
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Info Principal -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800" x-text="contact.full_name"></h1>
+                        <p class="text-gray-500" x-text="contact.nickname ? 'Apelido: ' + contact.nickname : ''"></p>
+                    </div>
+                    <a :href="'/admin/contacts/contact/' + contact.id + '/change/'" class="text-sm bg-gray-100 px-3 py-1.5 rounded-lg hover:bg-gray-200">
+                        Editar
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div><span class="text-sm text-gray-500" title="Classificação do contato na campanha">Categoria</span><div class="font-medium capitalize" x-text="(contact.category || '').replace(/_/g, ' ')"></div></div>
+                    <div><span class="text-sm text-gray-500" title="Nível de envolvimento com a campanha: 1-Frio a 5-Embaixador">Engajamento</span><div class="font-medium" x-text="['','Frio','Morno','Quente','Muito Quente','Embaixador'][contact.engagement_level] || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500" title="Partido político do contato, se houver">Partido</span><div class="font-medium" x-text="contact.party || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500">Telefone</span><div class="font-medium" x-text="contact.phone || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500">WhatsApp</span><div class="font-medium" x-text="contact.whatsapp || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500">Email</span><div class="font-medium" x-text="contact.email || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500" title="Profissão ou ocupação do contato">Profissão</span><div class="font-medium" x-text="contact.profession || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500">Cidade</span><div class="font-medium" x-text="contact.city_name || '-'"></div></div>
+                    <div><span class="text-sm text-gray-500">Região</span><div class="font-medium" x-text="contact.region_name || '-'"></div></div>
+                </div>
+
+                <div x-show="contact.notes" class="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <span class="text-sm text-gray-500" title="Notas e informações adicionais sobre o contato">Observações</span>
+                    <p class="text-sm mt-1" x-text="contact.notes"></p>
+                </div>
+            </div>
+
+            <!-- Interações -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold mb-4" title="Registro cronológico de contatos realizados: ligações, reuniões, WhatsApp, eventos">Histórico de Interações</h3>
+                <div class="space-y-3">
+                    <template x-for="int in contact.interactions || []" :key="int.id">
+                        <div class="border-l-4 border-primary-300 pl-4 py-2">
+                            <div class="flex justify-between">
+                                <span class="font-medium capitalize" x-text="int.interaction_type.replace(/_/g, ' ')"></span>
+                                <span class="text-sm text-gray-400" x-text="new Date(int.created_at).toLocaleDateString('pt-BR')"></span>
+                            </div>
+                            <p class="text-sm text-gray-600" x-text="int.description"></p>
+                            <p x-show="int.outcome" class="text-sm text-green-600" x-text="'Resultado: ' + int.outcome"></p>
+                        </div>
+                    </template>
+                    <p x-show="!contact.interactions || contact.interactions.length === 0" class="text-gray-400 text-sm">Nenhuma interação registrada</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div>
+            <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+                <h3 class="font-semibold mb-3" title="Quantidade de novos contatos trazidos por esta pessoa">Indicações</h3>
+                <div class="text-3xl font-bold text-primary-900" x-text="contact.referrals_count || 0"></div>
+                <p class="text-sm text-gray-500" title="Total de pessoas que foram indicadas por este contato">pessoas indicadas</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md p-4">
+                <h3 class="font-semibold mb-3" title="Etiquetas para categorização e busca rápida de contatos">Tags</h3>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="tag in contact.tags || []" :key="tag.id">
+                        <span class="badge" :style="'background:' + tag.color + '20; color:' + tag.color" x-text="tag.name"></span>
+                    </template>
+                    <p x-show="!contact.tags || contact.tags.length === 0" class="text-gray-400 text-sm">Nenhuma tag</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function contactDetailApp(id) {
+    return {
+        contact: {},
+        async init() {
+            try {
+                this.contact = await API.get(`/api/v1/contacts/${id}/`);
+            } catch (e) {
+                this.contact = {};
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

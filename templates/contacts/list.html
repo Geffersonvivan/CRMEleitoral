@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contatos{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Contatos</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="contactsApp()" x-init="init()">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800" title="Lista de todos os contatos cadastrados na campanha">Contatos</h1>
+        <a href="/admin/contacts/contact/add/" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium" title="Cadastrar um novo contato na campanha">
+            + Novo Contato
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1" title="Pesquisar por nome, telefone, email ou apelido">Buscar</label>
+                <input type="text" x-model="filters.search" @input.debounce.300ms="loadContacts()"
+                       placeholder="Nome, telefone, email..."
+                       class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1" title="Filtrar por tipo de contato: coordenador, apoiador, eleitor, etc.">Categoria</label>
+                <select x-model="filters.category" @change="loadContacts()"
+                        class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="">Todas</option>
+                    <option value="coordenador_regional">Coordenador Regional</option>
+                    <option value="coordenador_municipal">Coordenador Municipal</option>
+                    <option value="coordenador_bairro">Coordenador de Bairro</option>
+                    <option value="apoiador">Apoiador</option>
+                    <option value="parceiro">Parceiro</option>
+                    <option value="lideranca">Liderança</option>
+                    <option value="vereador">Vereador</option>
+                    <option value="eleitor">Eleitor</option>
+                    <option value="indeciso">Indeciso</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1" title="Filtrar pelo nível de engajamento do contato com a campanha">Engajamento</label>
+                <select x-model="filters.engagement" @change="loadContacts()"
+                        class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="">Todos</option>
+                    <option value="1">Frio</option>
+                    <option value="2">Morno</option>
+                    <option value="3">Quente</option>
+                    <option value="4">Muito Quente</option>
+                    <option value="5">Embaixador</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1" title="Filtrar por associação de municípios">Região</label>
+                <select x-model="filters.region" @change="loadContacts()"
+                        class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                    <option value="">Todas</option>
+                    <template x-for="r in regions" :key="r.id">
+                        <option :value="r.id" x-text="r.name"></option>
+                    </template>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contagem -->
+    <div class="text-sm text-gray-500 mb-3" x-text="contacts.length + ' contatos encontrados'"></div>
+
+    <!-- Tabela -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th title="Nome completo do contato">Nome</th>
+                        <th title="Classificação do contato na campanha">Categoria</th>
+                        <th title="Nível de envolvimento: Frio (sem contato) a Embaixador (multiplica votos)">Engajamento</th>
+                        <th title="Município do contato">Cidade</th>
+                        <th title="Associação de municípios do contato">Região</th>
+                        <th title="Número de WhatsApp para contato direto">WhatsApp</th>
+                        <th title="Quantidade de pessoas que este contato indicou para a campanha">Indicações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in contacts" :key="c.id">
+                        <tr class="clickable" @click="window.location.href='/contatos/' + c.id + '/'">
+                            <td class="font-medium" x-text="c.full_name"></td>
+                            <td>
+                                <span class="badge bg-blue-100 text-blue-700" x-text="c.category.replace(/_/g, ' ')"></span>
+                            </td>
+                            <td>
+                                <span class="badge"
+                                      :class="{
+                                          'bg-gray-100 text-gray-600': c.engagement_level === 1,
+                                          'bg-yellow-100 text-yellow-700': c.engagement_level === 2,
+                                          'bg-orange-100 text-orange-700': c.engagement_level === 3,
+                                          'bg-red-100 text-red-700': c.engagement_level === 4,
+                                          'bg-purple-100 text-purple-700': c.engagement_level === 5,
+                                      }"
+                                      x-text="['','Frio','Morno','Quente','Muito Quente','Embaixador'][c.engagement_level]"></span>
+                            </td>
+                            <td x-text="c.city_name || '-'" class="text-gray-500"></td>
+                            <td x-text="c.region_name || '-'" class="text-gray-500"></td>
+                            <td x-text="c.whatsapp || '-'" class="text-gray-500"></td>
+                            <td class="text-center" x-text="c.referrals_count || 0"></td>
+                        </tr>
+                    </template>
+                    <tr x-show="contacts.length === 0">
+                        <td colspan="7" class="text-center text-gray-400 py-8">Nenhum contato encontrado</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function contactsApp() {
+    return {
+        contacts: [],
+        regions: [],
+        filters: { search: '', category: '', engagement: '', region: '' },
+
+        async init() {
+            // Carregar regioes para filtro
+            try {
+                const resp = await API.get('/api/v1/geo/regions/');
+                this.regions = resp.results || resp;
+            } catch (e) {}
+            this.loadContacts();
+        },
+
+        async loadContacts() {
+            let url = '/api/v1/contacts/?';
+            if (this.filters.search) url += `search=${encodeURIComponent(this.filters.search)}&`;
+            if (this.filters.category) url += `category=${this.filters.category}&`;
+            if (this.filters.engagement) url += `engagement_level=${this.filters.engagement}&`;
+            if (this.filters.region) url += `region=${this.filters.region}&`;
+            try {
+                const resp = await API.get(url);
+                this.contacts = resp.results || resp;
+            } catch (e) {
+                this.contacts = [];
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

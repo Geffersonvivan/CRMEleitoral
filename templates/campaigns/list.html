@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block title %}Campanhas{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Campanhas</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="campaignsApp()" x-init="init()">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800" title="Campanhas de articulação política com metas e acompanhamento">Campanhas</h1>
+        <button @click="openNew()" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium" title="Criar uma nova campanha de articulação">
+            + Nova Campanha
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="c in campaigns" :key="c.id">
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <div class="flex items-start justify-between mb-3">
+                    <h3 class="font-semibold text-gray-800 cursor-pointer hover:text-primary-600" x-text="c.name" @click="openEdit(c)"></h3>
+                    <div class="flex items-center gap-1">
+                        <span class="badge text-xs px-2 py-1 rounded-full"
+                              :class="{
+                                  'bg-gray-100 text-gray-600': c.status === 'planned',
+                                  'bg-green-100 text-green-700': c.status === 'active',
+                                  'bg-yellow-100 text-yellow-700': c.status === 'paused',
+                                  'bg-blue-100 text-blue-700': c.status === 'completed',
+                              }"
+                              x-text="statusLabel(c.status)"></span>
+                        <button @click="deleteCampaign(c)" class="text-gray-400 hover:text-red-600 p-1" title="Excluir">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mb-4" x-text="c.description || 'Sem descrição'"></p>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500" title="Número alvo de contatos a serem feitos nesta campanha">Meta: <span class="font-semibold text-gray-800" x-text="c.goal_contacts"></span></span>
+                    <span class="text-gray-500" title="Contatos já realizados nesta campanha">Realizados: <span class="font-semibold text-green-600" x-text="c.achieved_contacts"></span></span>
+                </div>
+                <div class="mt-2 bg-gray-200 rounded-full h-2">
+                    <div class="bg-primary-600 h-2 rounded-full" :style="'width:' + Math.min(100, c.progress_percentage || 0) + '%'"></div>
+                </div>
+            </div>
+        </template>
+        <div x-show="campaigns.length === 0" class="col-span-full text-center text-gray-400 py-12">
+            Nenhuma campanha cadastrada
+        </div>
+    </div>
+
+    <!-- Modal Criar/Editar Campanha -->
+    <div x-show="showModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="showModal = false">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" @click.stop>
+            <h2 class="text-lg font-bold mb-4" x-text="isEditing ? 'Editar Campanha' : 'Nova Campanha'"></h2>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Nome</label>
+                    <input x-model="form.name" type="text" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Descrição</label>
+                    <textarea x-model="form.description" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm mt-1"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Data início</label>
+                        <input x-model="form.start_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Data fim</label>
+                        <input x-model="form.end_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Responsável</label>
+                        <select x-model="form.responsible" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="">Nenhum</option>
+                            <template x-for="u in users" :key="u.id">
+                                <option :value="u.id" x-text="u.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Status</label>
+                        <select x-model="form.status" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="planned">Planejada</option>
+                            <option value="active">Ativa</option>
+                            <option value="paused">Pausada</option>
+                            <option value="completed">Concluída</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700" title="Quantidade de contatos que a campanha pretende atingir">Meta de contatos</label>
+                        <input x-model.number="form.goal_contacts" type="number" min="0" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700" title="Quantidade de contatos já realizados até o momento">Contatos realizados</label>
+                        <input x-model.number="form.achieved_contacts" type="number" min="0" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showModal = false" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button @click="saveCampaign()" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700" x-text="isEditing ? 'Salvar' : 'Criar Campanha'"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function campaignsApp() {
+    return {
+        campaigns: [],
+        users: [],
+        showModal: false,
+        isEditing: false,
+        editingId: null,
+        form: { name: '', description: '', start_date: '', end_date: '', responsible: '', status: 'planned', goal_contacts: 0, achieved_contacts: 0 },
+
+        async init() {
+            await Promise.all([this.loadData(), this.loadUsers()]);
+        },
+
+        async loadData() {
+            try {
+                const resp = await API.get('/api/v1/campaigns/campaigns/');
+                this.campaigns = resp.results || resp;
+            } catch (e) { this.campaigns = []; }
+        },
+
+        async loadUsers() {
+            try { this.users = await API.get('/accounts/api/users/'); } catch (e) { this.users = []; }
+        },
+
+        openNew() {
+            this.isEditing = false;
+            this.editingId = null;
+            this.form = { name: '', description: '', start_date: '', end_date: '', responsible: '', status: 'planned', goal_contacts: 0, achieved_contacts: 0 };
+            this.showModal = true;
+        },
+
+        openEdit(c) {
+            this.isEditing = true;
+            this.editingId = c.id;
+            this.form = {
+                name: c.name,
+                description: c.description || '',
+                start_date: c.start_date,
+                end_date: c.end_date || '',
+                responsible: c.responsible || '',
+                status: c.status,
+                goal_contacts: c.goal_contacts || 0,
+                achieved_contacts: c.achieved_contacts || 0,
+            };
+            this.showModal = true;
+        },
+
+        async saveCampaign() {
+            const data = { ...this.form };
+            data.responsible = data.responsible ? parseInt(data.responsible) : null;
+            if (!data.end_date) data.end_date = null;
+
+            try {
+                if (this.isEditing) {
+                    await API.put(`/api/v1/campaigns/campaigns/${this.editingId}/`, data);
+                } else {
+                    await API.post('/api/v1/campaigns/campaigns/', data);
+                }
+                this.showModal = false;
+                await this.loadData();
+            } catch (e) {
+                console.error('Erro ao salvar campanha:', e);
+                alert('Erro ao salvar campanha. Verifique os campos.');
+            }
+        },
+
+        async deleteCampaign(c) {
+            if (!confirm(`Excluir campanha "${c.name}"?`)) return;
+            try {
+                await API.delete(`/api/v1/campaigns/campaigns/${c.id}/`);
+                await this.loadData();
+            } catch (e) { alert('Erro ao excluir'); }
+        },
+
+        statusLabel(s) {
+            return { planned: 'Planejada', active: 'Ativa', paused: 'Pausada', completed: 'Concluída' }[s] || s;
+        },
+    };
+}
+</script>
+{% endblock %}

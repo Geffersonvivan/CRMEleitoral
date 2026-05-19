@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Eventos{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Eventos</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="eventsApp()" x-init="init()">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-800" title="Eventos presenciais, reuniões e encontros da campanha">Eventos</h1>
+        <a href="/admin/events/event/add/" class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium" title="Cadastrar um novo evento da campanha">
+            + Novo Evento
+        </a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th title="Nome ou título do evento">Evento</th>
+                        <th title="Categoria do evento: reunião, comício, carreata, etc.">Tipo</th>
+                        <th title="Data de realização do evento">Data</th>
+                        <th title="Município onde o evento será/foi realizado">Cidade</th>
+                        <th class="text-right" title="Número estimado de participantes">Esperados</th>
+                        <th class="text-right" title="Número real de participantes que compareceram">Presentes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="e in events" :key="e.id">
+                        <tr>
+                            <td class="font-medium" x-text="e.title"></td>
+                            <td>
+                                <span class="badge bg-blue-100 text-blue-700" x-text="e.event_type.replace(/_/g, ' ')"></span>
+                            </td>
+                            <td x-text="new Date(e.date).toLocaleDateString('pt-BR')"></td>
+                            <td x-text="e.city_name || '-'" class="text-gray-500"></td>
+                            <td class="text-right" x-text="e.expected_attendees || 0"></td>
+                            <td class="text-right" x-text="e.actual_attendees || 0"></td>
+                        </tr>
+                    </template>
+                    <tr x-show="events.length === 0">
+                        <td colspan="6" class="text-center text-gray-400 py-8">Nenhum evento cadastrado</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function eventsApp() {
+    return {
+        events: [],
+        async init() {
+            try {
+                const resp = await API.get('/api/v1/events/');
+                this.events = resp.results || resp;
+            } catch (e) { this.events = []; }
+        },
+    };
+}
+</script>
+{% endblock %}

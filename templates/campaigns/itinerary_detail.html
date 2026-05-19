@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Roteiro{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <a href="/roteiros/" class="hover:text-primary-600">Roteiros</a>
+    <span class="mx-2">/</span>
+    <span x-data x-text="document.querySelector('[x-ref=itName]')?.textContent || 'Detalhe'" class="text-gray-800 font-medium"></span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="itineraryDetailApp({{ itinerary_id }})" x-init="init()">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800" x-text="data.name" x-ref="itName"></h1>
+            <p class="text-sm text-gray-500 mt-1" x-text="formatPeriod(data.start_date, data.end_date)"></p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="badge text-xs px-3 py-1 rounded-full"
+                  :class="{
+                      'bg-gray-100 text-gray-600': data.status === 'planned',
+                      'bg-blue-100 text-blue-700': data.status === 'confirmed',
+                      'bg-orange-100 text-orange-700': data.status === 'in_progress',
+                      'bg-green-100 text-green-700': data.status === 'completed',
+                  }"
+                  x-text="statusLabel(data.status)"></span>
+            <select x-model="data.status" @change="updateStatus()" class="text-sm border rounded-lg px-3 py-1.5">
+                <option value="planned">Planejado</option>
+                <option value="confirmed">Confirmado</option>
+                <option value="in_progress">Em Andamento</option>
+                <option value="completed">Concluído</option>
+            </select>
+            <a :href="'/roteiros/'" class="text-sm text-gray-500 hover:text-primary-600">Editar na lista</a>
+        </div>
+    </div>
+
+    <!-- Info -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <div class="text-sm text-gray-500" title="Cidade de partida do roteiro">Saída</div>
+            <div class="font-bold" x-text="data.origin_city_name || '-'"></div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <div class="text-sm text-gray-500" title="Pessoa responsável pela execução do roteiro">Responsável</div>
+            <div class="font-bold" x-text="data.responsible_name || '-'"></div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <div class="text-sm text-gray-500" title="Número total de paradas programadas">Paradas</div>
+            <div class="font-bold" x-text="(data.stops || []).length"></div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <div class="text-sm text-gray-500" title="Número de cidades diferentes no roteiro">Cidades</div>
+            <div class="font-bold" x-text="uniqueCities()"></div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <div class="text-sm text-gray-500" title="Número de dias que o roteiro abrange">Dias</div>
+            <div class="font-bold" x-text="uniqueDays()"></div>
+        </div>
+    </div>
+
+    <!-- Timeline por dia -->
+    <div class="space-y-6">
+        <template x-for="[day, stops] in groupedByDay()" :key="day">
+            <div class="bg-white rounded-xl shadow-md p-5">
+                <h3 class="font-semibold text-primary-900 mb-4" x-text="formatDayHeader(day)"></h3>
+                <div class="space-y-4">
+                    <template x-for="(stop, idx) in stops" :key="stop.id">
+                        <div class="flex gap-4">
+                            <!-- Timeline dot -->
+                            <div class="flex flex-col items-center">
+                                <div class="w-3 h-3 rounded-full bg-primary-600 mt-1.5"></div>
+                                <div x-show="idx < stops.length - 1" class="w-0.5 bg-primary-200 flex-1 mt-1"></div>
+                            </div>
+                            <!-- Content -->
+                            <div class="flex-1 pb-4">
+                                <div class="flex items-center gap-3">
+                                    <span x-show="stop.scheduled_time" class="text-sm font-mono text-gray-500" x-text="stop.scheduled_time?.substring(0,5)"></span>
+                                    <a :href="'/cidade/' + stop.city_slug + '/'" class="font-semibold text-primary-800 hover:text-primary-600" x-text="stop.city_name"></a>
+                                    <span x-show="stop.is_overnight" class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded" title="Indica pernoite nesta cidade">Pernoite</span>
+                                </div>
+                                <div x-show="stop.task_title" class="text-sm text-gray-600 mt-1" x-text="stop.task_title"></div>
+                                <div x-show="stop.travel_minutes > 0" class="text-xs text-gray-400 mt-1" title="Tempo estimado de viagem até esta parada">
+                                    <span x-text="stop.travel_minutes"></span> min de deslocamento
+                                </div>
+                                <div x-show="stop.notes" class="text-xs text-gray-500 mt-1 bg-gray-50 rounded p-2" x-text="stop.notes"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <div x-show="!data.stops || data.stops.length === 0" class="text-center text-gray-400 py-12">
+        Nenhuma parada cadastrada. <a href="/roteiros/" class="text-primary-600 hover:underline">Editar na lista de roteiros</a>
+    </div>
+
+    <!-- Observações -->
+    <div x-show="data.notes" class="bg-white rounded-xl shadow-md p-5 mt-6">
+        <h3 class="font-semibold mb-2">Observações</h3>
+        <p class="text-sm text-gray-700" x-text="data.notes"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function itineraryDetailApp(id) {
+    return {
+        data: {},
+        async init() {
+            try {
+                this.data = await API.get(`/api/v1/campaigns/itineraries/${id}/`);
+            } catch (e) { this.data = {}; }
+        },
+        uniqueCities() {
+            return new Set((this.data.stops || []).map(s => s.city)).size;
+        },
+        uniqueDays() {
+            return new Set((this.data.stops || []).map(s => s.date)).size;
+        },
+        groupedByDay() {
+            const groups = {};
+            for (const stop of (this.data.stops || [])) {
+                if (!groups[stop.date]) groups[stop.date] = [];
+                groups[stop.date].push(stop);
+            }
+            return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+        },
+        formatDayHeader(date) {
+            const [y, m, d] = date.split('-');
+            const dt = new Date(y, m - 1, d);
+            const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+            return `${d}/${m} (${dias[dt.getDay()]})`;
+        },
+        formatPeriod(start, end) {
+            if (!start) return '';
+            const fmt = d => { const [y,m,day] = d.split('-'); return `${day}/${m}/${y}`; };
+            return `${fmt(start)} a ${fmt(end)}`;
+        },
+        async updateStatus() {
+            try {
+                await API.patch(`/api/v1/campaigns/itineraries/${this.data.id}/`, { status: this.data.status });
+            } catch (e) { alert('Erro ao atualizar status'); }
+        },
+        statusLabel(s) {
+            return { planned: 'Planejado', confirmed: 'Confirmado', in_progress: 'Em Andamento', completed: 'Concluído' }[s] || s;
+        },
+    };
+}
+</script>
+{% endblock %}

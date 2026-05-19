@@ -1,0 +1,26 @@
+<nav class="bg-primary-900 text-white shadow-lg fixed w-full z-50">
+    <div class="flex items-center justify-between px-4 py-3">
+        <div class="flex items-center gap-4">
+            <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 rounded hover:bg-primary-800">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+            <a href="/" title="Voltar ao dashboard principal" class="flex items-center gap-2">
+                <span class="text-lg font-bold tracking-tight">CRM ELEITORAL</span>
+                <span class="text-accent-500 font-semibold hidden sm:inline">SORGATTO 26</span>
+            </a>
+        </div>
+
+        <div class="flex items-center gap-4">
+            {% if user.is_authenticated %}
+            <span class="text-sm hidden md:inline">{{ user.get_full_name|default:user.username }}</span>
+            <form method="post" action="{% url 'accounts:logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit" title="Encerrar sessão e sair do sistema" class="text-sm bg-primary-800 px-3 py-1 rounded hover:bg-primary-700">Sair</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+<div class="h-14"></div>

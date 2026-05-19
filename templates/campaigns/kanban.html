@@ -1,0 +1,481 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Demandas{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+{% endblock %}
+
+{% block breadcrumb %}
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="/" class="hover:text-primary-600">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-800 font-medium">Demandas</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div x-data="kanbanApp()" x-init="init()">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <h1 class="text-2xl font-bold text-gray-800" title="Quadro kanban para gestão de demandas de campo: visitas, reuniões, articulações">Painel de Demandas</h1>
+        <div class="flex items-center gap-2">
+            <button @click="editingTaskId = null; newTask = { title: '', task_type: 'field_visit', priority: 'medium', region: '', city: '', due_date: '', goal_description: '', description: '' }; showNewModal = true"
+                    class="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 text-sm font-medium"
+                    title="Criar uma nova demanda de campo">
+                + Nova Demanda
+            </button>
+        </div>
+    </div>
+
+    <!-- Metricas -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div class="bg-white rounded-lg shadow-sm p-3">
+            <div class="text-2xl font-bold text-primary-900" x-text="stats.total || 0"></div>
+            <div class="text-xs text-gray-500" title="Quantidade total de demandas cadastradas">Total Demandas</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3">
+            <div class="text-2xl font-bold text-red-600" x-text="stats.overdue || 0"></div>
+            <div class="text-xs text-gray-500" title="Demandas com prazo vencido que ainda não foram concluídas">Em Atraso</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3">
+            <div class="text-2xl font-bold text-blue-600" x-text="stats.cities_with_tasks || 0"></div>
+            <div class="text-xs text-gray-500" title="Número de cidades que possuem ao menos uma demanda">Cidades com Demandas</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3">
+            <div class="text-2xl font-bold text-gray-400" x-text="(stats.cities_total || 295) - (stats.cities_with_tasks || 0)"></div>
+            <div class="text-xs text-gray-500" title="Cidades que não possuem nenhuma demanda cadastrada">Cidades sem Ação</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3">
+            <div class="text-2xl font-bold text-green-600" x-text="stats.by_phase?.completed || 0"></div>
+            <div class="text-xs text-gray-500" title="Demandas que foram finalizadas com sucesso">Concluídas</div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex flex-wrap gap-2 mb-4">
+        <select x-model="filters.region" @change="loadTasks()"
+                class="text-sm border rounded-lg px-3 py-1.5"
+                title="Filtrar demandas por região">
+            <option value="">Todas as Regiões</option>
+            <template x-for="r in regions" :key="r.id">
+                <option :value="r.id" x-text="r.name"></option>
+            </template>
+        </select>
+        <select x-model="filters.task_type" @change="loadTasks()"
+                class="text-sm border rounded-lg px-3 py-1.5"
+                title="Filtrar por tipo de demanda">
+            <option value="">Todos os Tipos</option>
+            <option value="meeting">Reunião com liderança</option>
+            <option value="event">Evento presencial</option>
+            <option value="field_visit">Visita de campo</option>
+            <option value="party_work">Articulação partidária</option>
+            <option value="communication">Ação de comunicação</option>
+            <option value="recruitment">Captação de apoiador</option>
+        </select>
+        <select x-model="filters.priority" @change="loadTasks()"
+                class="text-sm border rounded-lg px-3 py-1.5"
+                title="Filtrar por nível de prioridade">
+            <option value="">Todas Prioridades</option>
+            <option value="urgent">Urgente</option>
+            <option value="high">Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+        </select>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="flex gap-4 overflow-x-auto pb-4" style="min-height: 60vh">
+        <template x-for="col in columns" :key="col.phase">
+            <div class="flex-shrink-0 w-72">
+                <!-- Column Header -->
+                <div class="rounded-t-lg px-3 py-2 font-semibold text-sm flex items-center justify-between"
+                     :style="'background:' + col.color + '20; color:' + col.color">
+                    <span x-text="col.label"></span>
+                    <span class="bg-white rounded-full px-2 py-0.5 text-xs font-bold"
+                          :style="'color:' + col.color"
+                          x-text="tasksByPhase(col.phase).length"></span>
+                </div>
+
+                <!-- Cards Container -->
+                <div class="bg-gray-100 rounded-b-lg p-2 space-y-2 min-h-[200px]"
+                     :data-phase="col.phase"
+                     x-ref="col">
+                    <template x-for="task in tasksByPhase(col.phase)" :key="task.id">
+                        <div class="bg-white rounded-lg shadow-sm p-3 cursor-grab active:cursor-grabbing border-l-4"
+                             :class="{
+                                 'border-red-500': task.priority === 'urgent',
+                                 'border-orange-400': task.priority === 'high',
+                                 'border-blue-400': task.priority === 'medium',
+                                 'border-gray-300': task.priority === 'low',
+                             }"
+                             :data-id="task.id"
+                             @click="openDetail(task)">
+                            <!-- Cidade -->
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="w-2.5 h-2.5 rounded-full inline-block"
+                                      :style="'background:' + (task.region_color || '#90a4ae')"></span>
+                                <span class="text-xs font-semibold text-primary-800" x-text="task.city_name || 'Sem cidade'"></span>
+                            </div>
+                            <!-- Título -->
+                            <div class="text-sm font-medium text-gray-800 mb-2" x-text="task.title"></div>
+                            <!-- Footer -->
+                            <div class="flex items-center justify-between text-xs text-gray-400">
+                                <span x-text="taskTypeLabel(task.task_type)"></span>
+                                <div class="flex items-center gap-2">
+                                    <span x-show="task.assigned_to_name" x-text="task.assigned_to_name" class="truncate max-w-[80px]"></span>
+                                    <span x-show="task.due_date"
+                                          :class="task.is_overdue ? 'text-red-600 font-bold animate-pulse' : 'text-gray-400'"
+                                          x-text="formatDate(task.due_date)"></span>
+                                </div>
+                            </div>
+                            <!-- Meta -->
+                            <div x-show="task.goal_description" class="mt-1.5 text-xs text-gray-500 bg-gray-50 rounded px-2 py-1">
+                                <span x-text="task.goal_description"></span>
+                                <span x-show="task.goal_achieved" class="font-semibold text-green-600" x-text="' → ' + task.goal_achieved"></span>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="tasksByPhase(col.phase).length === 0"
+                         class="text-center text-gray-400 text-xs py-8">
+                        Nenhuma demanda
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Modal Criar/Editar Demanda -->
+    <div x-show="showNewModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="showNewModal = false">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" @click.stop>
+            <h2 class="text-lg font-bold mb-4" x-text="editingTaskId ? 'Editar Demanda' : 'Nova Demanda'"></h2>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Título</label>
+                    <input x-model="newTask.title" type="text" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Tipo</label>
+                        <select x-model="newTask.task_type" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="meeting">Reunião com liderança</option>
+                            <option value="event">Evento presencial</option>
+                            <option value="field_visit">Visita de campo</option>
+                            <option value="party_work">Articulação partidária</option>
+                            <option value="communication">Ação de comunicação</option>
+                            <option value="recruitment">Captação de apoiador</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Prioridade</label>
+                        <select x-model="newTask.priority" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="low">Baixa</option>
+                            <option value="medium">Média</option>
+                            <option value="high">Alta</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Região</label>
+                        <select x-model="newTask.region" class="w-full border rounded-lg px-3 py-2 text-sm mt-1"
+                                @change="onRegionChange()">
+                            <option value="">Selecione</option>
+                            <template x-for="r in regions" :key="r.id">
+                                <option :value="r.id" x-text="r.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Cidade</label>
+                        <select x-model="newTask.city" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                            <option value="">Selecione</option>
+                            <template x-for="c in modalCities" :key="c.id">
+                                <option :value="c.id" x-text="c.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Prazo</label>
+                        <input x-model="newTask.due_date" type="date" class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700" title="Objetivo quantificável da demanda. Ex: 50 apoiadores, 3 reuniões">Meta</label>
+                        <input x-model="newTask.goal_description" type="text" placeholder="Ex: 50 apoiadores"
+                               class="w-full border rounded-lg px-3 py-2 text-sm mt-1">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-gray-700">Descrição</label>
+                    <textarea x-model="newTask.description" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm mt-1"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showNewModal = false" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button @click="saveTask()" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700" x-text="editingTaskId ? 'Salvar' : 'Criar Demanda'"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalhe -->
+    <div x-show="showDetailModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+         @click.self="showDetailModal = false">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" @click.stop>
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h2 class="text-lg font-bold" x-text="detailTask.title"></h2>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="w-3 h-3 rounded-full inline-block" :style="'background:' + (detailTask.region_color || '#90a4ae')"></span>
+                        <span class="text-sm text-gray-500" x-text="(detailTask.city_name || 'Sem cidade') + (detailTask.region_name ? ' — ' + detailTask.region_name : '')"></span>
+                    </div>
+                </div>
+                <button @click="showDetailModal = false" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-3 gap-3">
+                    <div><span class="text-gray-500">Tipo</span><div class="font-medium" x-text="taskTypeLabel(detailTask.task_type)"></div></div>
+                    <div><span class="text-gray-500">Prioridade</span><div class="font-medium capitalize" x-text="priorityLabel(detailTask.priority)"></div></div>
+                    <div><span class="text-gray-500">Fase</span>
+                        <select x-model="detailTask.phase" @change="updateTaskPhase(detailTask)"
+                                class="border rounded px-2 py-1 text-sm mt-0.5 w-full">
+                            <template x-for="col in columns" :key="col.phase">
+                                <option :value="col.phase" x-text="col.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><span class="text-gray-500">Responsável</span><div class="font-medium" x-text="detailTask.assigned_to_name || '-'"></div></div>
+                    <div><span class="text-gray-500">Prazo</span><div class="font-medium" :class="detailTask.is_overdue ? 'text-red-600' : ''" x-text="detailTask.due_date || '-'"></div></div>
+                </div>
+                <div x-show="detailTask.goal_description">
+                    <span class="text-gray-500">Meta</span>
+                    <div class="font-medium" x-text="detailTask.goal_description"></div>
+                </div>
+                <div x-show="detailTask.description">
+                    <span class="text-gray-500">Descrição</span>
+                    <div class="text-gray-700 bg-gray-50 rounded-lg p-3 mt-1" x-text="detailTask.description"></div>
+                </div>
+                <div x-show="detailTask.phase === 'executed' || detailTask.phase === 'completed'" class="border-t pt-3">
+                    <label class="text-gray-500">Resultado obtido</label>
+                    <input type="number" x-model.number="detailTask.goal_achieved"
+                           @change="updateTaskField(detailTask, 'goal_achieved', detailTask.goal_achieved)"
+                           class="border rounded-lg px-3 py-2 w-full mt-1">
+                </div>
+            </div>
+            <div class="flex justify-between mt-4 pt-3 border-t">
+                <button @click="deleteTask(detailTask)" class="text-sm text-red-500 hover:text-red-700">Excluir</button>
+                <button @click="openEditFromDetail()" class="text-sm text-primary-600 hover:text-primary-800">Editar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function kanbanApp() {
+    return {
+        tasks: [],
+        stats: {},
+        regions: [],
+        modalCities: [],
+        showNewModal: false,
+        showDetailModal: false,
+        detailTask: {},
+        editingTaskId: null,
+        filters: { region: '', task_type: '', priority: '' },
+        newTask: { title: '', task_type: 'field_visit', priority: 'medium', region: '', city: '', due_date: '', goal_description: '', description: '' },
+        columns: [
+            { phase: 'planned', label: 'Planejada', color: '#6b7280' },
+            { phase: 'articulating', label: 'Em Articulação', color: '#3b82f6' },
+            { phase: 'scheduled', label: 'Agendada', color: '#eab308' },
+            { phase: 'executed', label: 'Executada', color: '#f97316' },
+            { phase: 'completed', label: 'Concluída', color: '#22c55e' },
+        ],
+
+        async init() {
+            await this.loadRegions();
+            await this.loadTasks();
+            this.$nextTick(() => this.initSortable());
+        },
+
+        async loadRegions() {
+            try {
+                const resp = await API.get('/api/v1/geo/regions/');
+                this.regions = resp.results || resp;
+            } catch (e) { this.regions = []; }
+        },
+
+        getRegionSlug(regionId) {
+            const r = this.regions.find(r => r.id == regionId);
+            return r ? r.slug : null;
+        },
+
+        async onRegionChange() {
+            this.newTask.city = '';
+            this.modalCities = [];
+            const slug = this.getRegionSlug(this.newTask.region);
+            if (!slug) return;
+            try {
+                this.modalCities = await API.get(`/api/v1/geo/regions/${slug}/cities/`);
+            } catch (e) { this.modalCities = []; }
+        },
+
+        async loadTasks() {
+            try {
+                let url = '/api/v1/campaigns/tasks/?limit=500';
+                if (this.filters.region) url += `&region=${this.filters.region}`;
+                if (this.filters.task_type) url += `&task_type=${this.filters.task_type}`;
+                if (this.filters.priority) url += `&priority=${this.filters.priority}`;
+                const resp = await API.get(url);
+                this.tasks = resp.results || resp;
+
+                // Stats
+                let statsUrl = '/api/v1/campaigns/tasks/stats/';
+                if (this.filters.region) statsUrl += `?region=${this.filters.region}`;
+                const statsResp = await API.get(statsUrl);
+                this.stats = statsResp;
+            } catch (e) {
+                this.tasks = [];
+                this.stats = {};
+            }
+        },
+
+        tasksByPhase(phase) {
+            return this.tasks.filter(t => t.phase === phase);
+        },
+
+        initSortable() {
+            const cols = this.$el.querySelectorAll('[data-phase]');
+            cols.forEach(col => {
+                new Sortable(col, {
+                    group: 'kanban',
+                    animation: 150,
+                    ghostClass: 'opacity-30',
+                    draggable: '[data-id]',
+                    onEnd: (evt) => {
+                        const taskId = evt.item.dataset.id;
+                        const newPhase = evt.to.dataset.phase;
+                        this.moveTask(parseInt(taskId), newPhase);
+                    },
+                });
+            });
+        },
+
+        async moveTask(taskId, newPhase) {
+            const task = this.tasks.find(t => t.id === taskId);
+            if (!task || task.phase === newPhase) return;
+            task.phase = newPhase;
+            if (newPhase === 'completed' && !task.completed_at) {
+                task.completed_at = new Date().toISOString().split('T')[0];
+            }
+            await this.patchTask(taskId, { phase: newPhase, completed_at: task.completed_at });
+        },
+
+        async saveTask() {
+            try {
+                const body = { ...this.newTask };
+                if (!body.region) delete body.region;
+                if (!body.city) delete body.city;
+                if (!body.due_date) delete body.due_date;
+
+                if (this.editingTaskId) {
+                    await API.put(`/api/v1/campaigns/tasks/${this.editingTaskId}/`, body);
+                } else {
+                    body.phase = 'planned';
+                    await API.post('/api/v1/campaigns/tasks/', body);
+                }
+                this.showNewModal = false;
+                this.editingTaskId = null;
+                this.newTask = { title: '', task_type: 'field_visit', priority: 'medium', region: '', city: '', due_date: '', goal_description: '', description: '' };
+                await this.loadTasks();
+                this.$nextTick(() => this.initSortable());
+            } catch (e) {
+                console.error('Erro ao salvar demanda:', e);
+                alert('Erro ao salvar demanda. Verifique os campos.');
+            }
+        },
+
+        async openEditFromDetail() {
+            const t = this.detailTask;
+            this.editingTaskId = t.id;
+            this.newTask = {
+                title: t.title,
+                task_type: t.task_type,
+                priority: t.priority,
+                phase: t.phase,
+                region: t.region || '',
+                city: t.city || '',
+                due_date: t.due_date || '',
+                goal_description: t.goal_description || '',
+                description: t.description || '',
+            };
+            if (t.region) {
+                const slug = this.getRegionSlug(t.region);
+                if (slug) {
+                    try { this.modalCities = await API.get(`/api/v1/geo/regions/${slug}/cities/`); } catch (e) { this.modalCities = []; }
+                }
+            }
+            this.showDetailModal = false;
+            this.showNewModal = true;
+        },
+
+        async patchTask(taskId, data) {
+            try {
+                await API.patch(`/api/v1/campaigns/tasks/${taskId}/`, data);
+            } catch (e) { console.error('Erro ao atualizar:', e); }
+        },
+
+        async updateTaskPhase(task) {
+            await this.patchTask(task.id, { phase: task.phase });
+            await this.loadTasks();
+        },
+
+        async updateTaskField(task, field, value) {
+            await this.patchTask(task.id, { [field]: value });
+        },
+
+        async deleteTask(task) {
+            if (!confirm('Excluir esta demanda?')) return;
+            try {
+                await API.delete(`/api/v1/campaigns/tasks/${task.id}/`);
+                this.showDetailModal = false;
+                await this.loadTasks();
+            } catch (e) { console.error('Erro ao excluir:', e); }
+        },
+
+        openDetail(task) {
+            this.detailTask = { ...task };
+            this.showDetailModal = true;
+        },
+
+        taskTypeLabel(type) {
+            const map = {
+                meeting: 'Reunião', event: 'Evento', field_visit: 'Visita',
+                party_work: 'Articulação', communication: 'Comunicação', recruitment: 'Captação',
+            };
+            return map[type] || type;
+        },
+
+        priorityLabel(p) {
+            const map = { low: 'Baixa', medium: 'Média', high: 'Alta', urgent: 'Urgente' };
+            return map[p] || p;
+        },
+
+        formatDate(d) {
+            if (!d) return '';
+            const [y, m, day] = d.split('-');
+            return `${day}/${m}`;
+        },
+    };
+}
+</script>
+{% endblock %}
