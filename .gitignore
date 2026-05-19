@@ -30,6 +30,10 @@ media/uploads/
 .DS_Store
 Thumbs.db
 
+# Large data files (TSE datasets)
+data/tse2024/*.zip
+data/tse2024/perfil_eleitorado_2024.csv
+
 # Logs
 *.log
 
