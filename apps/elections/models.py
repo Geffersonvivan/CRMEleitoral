@@ -32,7 +32,7 @@ class CandidateResult(TimeStampedModel):
     )
     candidate_name = models.CharField('Candidato', max_length=255)
     candidate_number = models.CharField('Número', max_length=10)
-    party = models.CharField('Partido', max_length=50)
+    party = models.CharField('Partido', max_length=150)
     city = models.ForeignKey(
         'geography.City', verbose_name='Cidade',
         on_delete=models.CASCADE, related_name='election_results'
@@ -59,7 +59,7 @@ class ZoneResult(TimeStampedModel):
     )
     candidate_name = models.CharField('Candidato', max_length=255)
     candidate_number = models.CharField('Número', max_length=10)
-    party = models.CharField('Partido', max_length=50)
+    party = models.CharField('Partido', max_length=150)
     city = models.ForeignKey(
         'geography.City', verbose_name='Cidade',
         on_delete=models.CASCADE, related_name='zone_election_results'

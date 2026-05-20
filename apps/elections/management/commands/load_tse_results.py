@@ -74,6 +74,11 @@ class Command(BaseCommand):
                 self.stderr.write(f'Cargo {cargo_code} nao reconhecido')
                 continue
 
+            # Fechar conexoes antigas para evitar esgotamento de sockets
+            from django.db import connections
+            for conn in connections.all():
+                conn.close()
+
             election_type, cargo_name = CARGO_MAP[cargo_code]
             self.stdout.write(f'\n=== {cargo_name} ===')
 
@@ -118,8 +123,8 @@ class Command(BaseCommand):
             # Limpar resultados anteriores deste cargo
             CandidateResult.objects.filter(election=election).delete()
 
-            # 4. Buscar votos por municipio
-            total_results = 0
+            # 4. Buscar votos por municipio (coleta tudo em memória primeiro)
+            all_results = []  # Coleta todos em memória
             errors = 0
 
             for i, mun in enumerate(tse_municipalities):
@@ -129,7 +134,6 @@ class Command(BaseCommand):
                 # Encontrar cidade no banco
                 city = cities_by_name.get(mun_name.upper())
                 if not city:
-                    # Tentar variantes de nome
                     for db_name, db_city in cities_by_name.items():
                         if mun_name.upper().replace("'", "'") == db_name:
                             city = db_city
@@ -137,7 +141,6 @@ class Command(BaseCommand):
                 if not city:
                     continue
 
-                # Buscar votos do municipio
                 mun_url = f'{BASE_URL}/dados/sc/sc{tse_code}-c000{cargo_code}-e000546-v.json'
                 try:
                     mun_data = self._fetch_json(mun_url)
@@ -150,52 +153,50 @@ class Command(BaseCommand):
                     continue
 
                 mun_cands = abr_list[0].get('cand', [])
+                mun_results = []
 
-                results_to_create = []
                 for mc in mun_cands:
                     cand_num = mc['n']
-
-                    # Filtrar se top_n ativo
                     if top_numbers and cand_num not in top_numbers:
                         continue
-
                     info = cand_info.get(cand_num, {})
                     votes = int(mc.get('vap', '0'))
-
                     if votes == 0:
                         continue
-
-                    results_to_create.append(CandidateResult(
+                    mun_results.append(CandidateResult(
                         election=election,
                         candidate_name=info.get('name', f'Candidato #{cand_num}'),
                         candidate_number=cand_num,
                         party=info.get('party', ''),
                         city=city,
                         votes=votes,
-                        percentage=0,  # Calcular depois
+                        percentage=0,
                         is_elected=info.get('elected', False),
                         is_sorgatto=info.get('is_sorgatto', False),
                     ))
 
-                if results_to_create:
-                    CandidateResult.objects.bulk_create(results_to_create)
-                    # Calcular percentuais
-                    total_votes = sum(r.votes for r in results_to_create)
-                    if total_votes > 0:
-                        for r in results_to_create:
-                            r.percentage = round((r.votes / total_votes) * 100, 2)
-                        CandidateResult.objects.bulk_update(results_to_create, ['percentage'])
+                # Calcular percentuais em memória
+                total_votes = sum(r.votes for r in mun_results)
+                if total_votes > 0:
+                    for r in mun_results:
+                        r.percentage = round((r.votes / total_votes) * 100, 2)
 
-                    total_results += len(results_to_create)
+                all_results.extend(mun_results)
 
                 if (i + 1) % 50 == 0:
-                    self.stdout.write(f'  {i + 1}/{len(tse_municipalities)} municipios processados...')
+                    self.stdout.write(f'  {i + 1}/{len(tse_municipalities)} municipios buscados...')
 
-                # Rate limiting
                 time.sleep(0.05)
 
+            # Inserir tudo de uma vez em batches
+            if all_results:
+                batch_size = 500
+                for j in range(0, len(all_results), batch_size):
+                    CandidateResult.objects.bulk_create(all_results[j:j + batch_size])
+                self.stdout.write(f'  {len(all_results)} resultados inseridos no banco')
+
             self.stdout.write(self.style.SUCCESS(
-                f'  {cargo_name}: {total_results} resultados importados ({errors} erros)'
+                f'  {cargo_name}: {len(all_results)} resultados importados ({errors} erros)'
             ))
 
             # Atualizar votos_sorgatto_2022 nas cidades (se Dep Federal)
