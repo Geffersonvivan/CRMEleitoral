@@ -8,7 +8,7 @@ import gzip
 import time
 import urllib.request
 from django.core.management.base import BaseCommand
-from apps.elections.models import Election, CandidateResult
+from apps.elections.models import Election, CandidateResult, ZoneResult
 from apps.geography.models import City
 
 # Mapeamento de codigos de cargo TSE
@@ -34,6 +34,10 @@ class Command(BaseCommand):
             '--top', type=int, default=0,
             help='Importar apenas os N candidatos mais votados (0=todos)'
         )
+        parser.add_argument(
+            '--zones-only', action='store_true',
+            help='Importar apenas dados por zona eleitoral (dep. federal)'
+        )
 
     def _fetch_json(self, url):
         req = urllib.request.Request(url, headers={
@@ -50,6 +54,9 @@ class Command(BaseCommand):
             return json.loads(data)
 
     def handle(self, *args, **options):
+        if options['zones_only']:
+            return self._load_zones(options)
+
         cargos = options['cargos']
         top_n = options['top']
 
@@ -216,3 +223,136 @@ class Command(BaseCommand):
             result.city.save(update_fields=['votes_sorgatto_2022'])
             updated += 1
         self.stdout.write(f'  {updated} cidades atualizadas com votos Sorgatto 2022')
+
+    def _load_zones(self, options):
+        """Importa resultados por zona eleitoral (dep. federal 2022)"""
+        top_n = options['top']
+        cargo_code = 6  # Dep. Federal
+
+        self.stdout.write('Buscando configuracao de municipios do TSE...')
+        config = self._fetch_json(f'{BASE_URL}/config/mun-e000546-cm.json')
+        sc_entry = next((a for a in config['abr'] if a['cd'] == 'SC'), None)
+        if not sc_entry:
+            self.stderr.write('SC nao encontrado')
+            return
+
+        tse_municipalities = sc_entry['mu']
+        self.stdout.write(f'  {len(tse_municipalities)} municipios')
+
+        cities_by_name = {}
+        for city in City.objects.all():
+            cities_by_name[city.name.upper()] = city
+
+        # Buscar dados estaduais para nomes dos candidatos
+        state_url = f'{BASE_URL}/dados-simplificados/sc/sc-c000{cargo_code}-e000546-r.json'
+        state_data = self._fetch_json(state_url)
+        state_cands = state_data.get('cand', [])
+
+        cand_info = {}
+        for c in state_cands:
+            cand_info[c['n']] = {
+                'name': c['nm'],
+                'party': c.get('cc', ''),
+                'is_sorgatto': 'sorgatto' in c.get('nm', '').lower(),
+            }
+        self.stdout.write(f'  {len(cand_info)} candidatos no estado')
+
+        # Filtrar top N
+        if top_n > 0:
+            sorted_cands = sorted(state_cands, key=lambda c: int(c.get('vap', '0')), reverse=True)
+            top_numbers = set(c['n'] for c in sorted_cands[:top_n])
+            for c in state_cands:
+                if 'sorgatto' in c.get('nm', '').lower():
+                    top_numbers.add(c['n'])
+            self.stdout.write(f'  Filtrando top {top_n} candidatos')
+        else:
+            top_numbers = None
+
+        election, _ = Election.objects.get_or_create(
+            year=2022, election_type='federal_deputy', round_number=1,
+        )
+
+        # Limpar zona results anteriores
+        ZoneResult.objects.filter(election=election).delete()
+
+        all_zone_results = []
+        errors = 0
+
+        for i, mun in enumerate(tse_municipalities):
+            tse_code = mun['cd']
+            mun_name = mun['nm']
+
+            city = cities_by_name.get(mun_name.upper())
+            if not city:
+                for db_name, db_city in cities_by_name.items():
+                    if mun_name.upper().replace("'", "'") == db_name:
+                        city = db_city
+                        break
+            if not city:
+                continue
+
+            mun_url = f'{BASE_URL}/dados/sc/sc{tse_code}-c000{cargo_code}-e000546-v.json'
+            try:
+                mun_data = self._fetch_json(mun_url)
+            except Exception:
+                errors += 1
+                continue
+
+            abr_list = mun_data.get('abr', [])
+
+            for abr in abr_list:
+                if abr.get('tpabr') != 'ZONA':
+                    continue
+
+                zone_number = str(abr.get('cdabr', ''))
+                zone_cands = abr.get('cand', [])
+                zone_results = []
+
+                for mc in zone_cands:
+                    cand_num = mc['n']
+                    if top_numbers and cand_num not in top_numbers:
+                        continue
+                    info = cand_info.get(cand_num, {})
+                    votes = int(mc.get('vap', '0'))
+                    if votes == 0:
+                        continue
+                    zone_results.append(ZoneResult(
+                        election=election,
+                        candidate_name=info.get('name', f'Candidato #{cand_num}'),
+                        candidate_number=cand_num,
+                        party=info.get('party', ''),
+                        city=city,
+                        zone_number=zone_number,
+                        votes=votes,
+                        percentage=0,
+                        is_sorgatto=info.get('is_sorgatto', False),
+                    ))
+
+                # Percentuais por zona
+                total_votes = sum(r.votes for r in zone_results)
+                if total_votes > 0:
+                    for r in zone_results:
+                        r.percentage = round((r.votes / total_votes) * 100, 2)
+
+                all_zone_results.extend(zone_results)
+
+            if (i + 1) % 50 == 0:
+                self.stdout.write(f'  {i + 1}/{len(tse_municipalities)} municipios buscados...')
+
+            time.sleep(0.05)
+
+        # Fechar conexoes e inserir em batch
+        from django.db import connections
+        for conn in connections.all():
+            conn.close()
+
+        if all_zone_results:
+            batch_size = 500
+            for j in range(0, len(all_zone_results), batch_size):
+                ZoneResult.objects.bulk_create(all_zone_results[j:j + batch_size])
+
+        zones_unique = len(set(r.zone_number for r in all_zone_results))
+        self.stdout.write(self.style.SUCCESS(
+            f'{len(all_zone_results)} resultados por zona importados '
+            f'({zones_unique} zonas, {errors} erros)'
+        ))
