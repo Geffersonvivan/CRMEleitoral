@@ -2,7 +2,6 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
 
 WORKDIR /app
 
@@ -17,5 +16,4 @@ COPY . .
 
 EXPOSE 8000
 
-ENTRYPOINT ["sh", "-c"]
-CMD ["python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT} --timeout 120 --workers 2 --log-level info"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "120", "--workers", "2", "--log-level", "info"]
