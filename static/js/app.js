@@ -110,6 +110,30 @@ const API = {
     },
 };
 
+// Countdown eleições 2026 — 1º turno 04/10/2026 19:00 BRT
+function countdown() {
+    const target = new Date('2026-10-04T22:00:00Z').getTime(); // 19h BRT = 22h UTC
+    return {
+        days: '000', hours: '00', mins: '00', secs: '00',
+        start() {
+            this.tick();
+            setInterval(() => this.tick(), 1000);
+        },
+        tick() {
+            const diff = Math.max(0, target - Date.now());
+            const s = Math.floor(diff / 1000);
+            const d = Math.floor(s / 86400);
+            const h = Math.floor((s % 86400) / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            this.days = String(d).padStart(3, '0');
+            this.hours = String(h).padStart(2, '0');
+            this.mins = String(m).padStart(2, '0');
+            this.secs = String(sec).padStart(2, '0');
+        }
+    };
+}
+
 // Utilidades de formatacao
 const fmt = {
     number: (n) => (n || 0).toLocaleString('pt-BR'),

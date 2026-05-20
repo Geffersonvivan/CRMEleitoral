@@ -12,11 +12,30 @@
             </a>
         </div>
 
-        <div class="hidden md:flex items-center gap-2 text-sm" title="Contagem regressiva para o 1º turno das eleições 2026 (4 de outubro)">
-            <svg class="w-4 h-4 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span class="text-accent-500 font-semibold" x-data="{ days: Math.ceil((new Date('2026-10-04') - new Date()) / 86400000) }" x-text="days + (days === 1 ? ' dia' : ' dias') + ' para as eleições'"></span>
+        <div class="hidden md:flex items-center gap-2"
+             title="Contagem regressiva para o 1º turno das eleições 2026 (4 de outubro, 19h)"
+             x-data="countdown()" x-init="start()">
+            <div class="flex items-center gap-1 bg-black/80 rounded-md px-2.5 py-1 border border-gray-700 shadow-inner">
+                <div class="flex flex-col items-center">
+                    <span class="countdown-digit" x-text="days"></span>
+                    <span class="countdown-label">DIAS</span>
+                </div>
+                <span class="countdown-sep">:</span>
+                <div class="flex flex-col items-center">
+                    <span class="countdown-digit" x-text="hours"></span>
+                    <span class="countdown-label">HRS</span>
+                </div>
+                <span class="countdown-sep">:</span>
+                <div class="flex flex-col items-center">
+                    <span class="countdown-digit" x-text="mins"></span>
+                    <span class="countdown-label">MIN</span>
+                </div>
+                <span class="countdown-sep">:</span>
+                <div class="flex flex-col items-center">
+                    <span class="countdown-digit" x-text="secs"></span>
+                    <span class="countdown-label">SEG</span>
+                </div>
+            </div>
         </div>
 
         <div class="flex items-center gap-4">
