@@ -14,6 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN chmod +x entrypoint.sh
-
-CMD ["./entrypoint.sh"]
+CMD sh -c "echo '==> Migrate...' && python manage.py migrate --noinput && echo '==> Collectstatic...' && python manage.py collectstatic --noinput && echo '==> Starting gunicorn on port $PORT...' && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout 120 --workers 2 --log-level info"
