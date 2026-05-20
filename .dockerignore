@@ -1,0 +1,31 @@
+venv/
+.venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+
+# Dados pesados - não necessários no deploy
+data/
+Mapa/
+
+# Dev files
+db.sqlite3
+db.sqlite3-journal
+.env
+*.md
+implementar.md
+docker-compose.yml
+
+# Media uploads
+media/uploads/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
