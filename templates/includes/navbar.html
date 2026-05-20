@@ -12,28 +12,29 @@
             </a>
         </div>
 
-        <div class="hidden md:flex items-center gap-2"
+        <div class="hidden md:flex items-center gap-3"
              title="Contagem regressiva para o 1º turno das eleições 2026 (4 de outubro, 19h)"
              x-data="countdown()" x-init="start()">
-            <div class="flex items-center gap-1 bg-black/80 rounded-md px-2.5 py-1 border border-gray-700 shadow-inner">
-                <div class="flex flex-col items-center">
-                    <span class="countdown-digit" x-text="days"></span>
-                    <span class="countdown-label">DIAS</span>
+            <span class="text-[11px] text-primary-200 font-medium uppercase tracking-wider">Eleições</span>
+            <div class="flex items-center gap-1.5">
+                <div class="cd-block">
+                    <span class="cd-num" x-text="days"></span>
+                    <span class="cd-lbl">dias</span>
                 </div>
-                <span class="countdown-sep">:</span>
-                <div class="flex flex-col items-center">
-                    <span class="countdown-digit" x-text="hours"></span>
-                    <span class="countdown-label">HRS</span>
+                <span class="cd-dot">:</span>
+                <div class="cd-block">
+                    <span class="cd-num" x-text="hours"></span>
+                    <span class="cd-lbl">hrs</span>
                 </div>
-                <span class="countdown-sep">:</span>
-                <div class="flex flex-col items-center">
-                    <span class="countdown-digit" x-text="mins"></span>
-                    <span class="countdown-label">MIN</span>
+                <span class="cd-dot">:</span>
+                <div class="cd-block">
+                    <span class="cd-num" x-text="mins"></span>
+                    <span class="cd-lbl">min</span>
                 </div>
-                <span class="countdown-sep">:</span>
-                <div class="flex flex-col items-center">
-                    <span class="countdown-digit" x-text="secs"></span>
-                    <span class="countdown-label">SEG</span>
+                <span class="cd-dot">:</span>
+                <div class="cd-block">
+                    <span class="cd-num" x-text="secs"></span>
+                    <span class="cd-lbl">seg</span>
                 </div>
             </div>
         </div>
