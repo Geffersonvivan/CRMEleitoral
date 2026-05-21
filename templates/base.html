@@ -96,10 +96,12 @@
     <!-- Tooltip instantâneo: converte title em data-tip e mostra sem delay -->
     <script>
     (function() {
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
         const tip = document.createElement('div');
         tip.className = 'crm-tip';
         tip.style.cssText = 'position:fixed;background:#1e293b;color:#fff;font-size:12px;font-weight:400;line-height:1.4;padding:6px 10px;border-radius:6px;max-width:320px;pointer-events:none;z-index:9999;opacity:0;transition:opacity .08s;white-space:normal;box-shadow:0 4px 12px rgba(0,0,0,.25);';
-        document.body.appendChild(tip);
+        if (!isTouch) document.body.appendChild(tip);
 
         let active = null;
 
@@ -108,7 +110,7 @@
                 if (el.closest('.map-tooltip') || el.tagName === 'IFRAME') return;
                 const text = el.getAttribute('title');
                 if (!text) return;
-                el.setAttribute('data-tip', text);
+                if (!isTouch) el.setAttribute('data-tip', text);
                 el.removeAttribute('title');
             });
         }

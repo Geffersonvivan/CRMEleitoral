@@ -54,7 +54,7 @@
     height: 100%;
 }
 
-/* Mobile: tabelas e data-tables scrollam horizontalmente */
+/* Mobile */
 @media (max-width: 768px) {
     .data-table {
         font-size: 0.75rem;
@@ -64,6 +64,7 @@
         padding: 0.4rem 0.5rem;
     }
 }
+
 
 /* Hover regioes/cidades - GPU accelerated, sem reflow */
 path.region, path.city {
