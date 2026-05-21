@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% block title %}Gestão de Usuários{% endblock %}
+
+{% block content %}
+<div x-data="usuariosApp()" x-init="load()">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Gestão de Usuários</h1>
+            <p class="text-sm text-gray-500 mt-1">Gerencie acessos, perfis e permissões</p>
+        </div>
+        <button @click="novoUsuario()" class="bg-primary-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-800 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            Novo Usuário
+        </button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3 items-center">
+        <input type="search" x-model="filtro.busca" @input.debounce.300ms="load()" placeholder="Buscar por nome ou email..."
+               class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64">
+        <select x-model="filtro.role" @change="load()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <option value="">Todos os perfis</option>
+            <template x-for="r in roles" :key="r.value">
+                <option :value="r.value" x-text="r.label"></option>
+            </template>
+        </select>
+        <select x-model="filtro.active" @change="load()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <option value="true">Ativos</option>
+            <option value="false">Inativos</option>
+            <option value="">Todos</option>
+        </select>
+        <span class="text-sm text-gray-500 ml-auto" x-text="usuarios.length + ' usuário(s)'"></span>
+    </div>
+
+    <!-- Tabela de usuários -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+                <tr>
+                    <th class="px-4 py-3 text-left">Usuário</th>
+                    <th class="px-4 py-3 text-left">Perfil</th>
+                    <th class="px-4 py-3 text-left">Região/Cidade</th>
+                    <th class="px-4 py-3 text-left">Módulos</th>
+                    <th class="px-4 py-3 text-center">Status</th>
+                    <th class="px-4 py-3 text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-for="u in usuarios" :key="u.id">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3">
+                            <div class="font-medium text-gray-900" x-text="u.full_name || u.username"></div>
+                            <div class="text-xs text-gray-500" x-text="u.email"></div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium"
+                                  :class="roleClass(u.role)"
+                                  x-text="u.role_display"></span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600">
+                            <span x-text="u.region_name || ''"></span>
+                            <span x-show="u.city_name" class="text-gray-400"> / </span>
+                            <span x-text="u.city_name || ''"></span>
+                            <span x-show="!u.region_name && !u.city_name" class="text-gray-400">— Todas —</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="m in (u.modules_display || []).slice(0, 4)" :key="m">
+                                    <span class="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]" x-text="m"></span>
+                                </template>
+                                <span x-show="(u.modules_display || []).length > 4" class="text-gray-400 text-[10px]"
+                                      x-text="'+' + ((u.modules_display || []).length - 4)"></span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="w-2.5 h-2.5 rounded-full inline-block"
+                                  :class="u.is_active_campaign ? 'bg-green-500' : 'bg-red-400'"></span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button @click="editar(u)" class="text-primary-600 hover:text-primary-800 p-1" title="Editar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button @click="toggleAtivo(u)" class="p-1" :class="u.is_active_campaign ? 'text-red-400 hover:text-red-600' : 'text-green-500 hover:text-green-700'" :title="u.is_active_campaign ? 'Desativar' : 'Ativar'">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+        <div x-show="loading" class="text-center py-8 text-gray-400">Carregando...</div>
+        <div x-show="!loading && usuarios.length === 0" class="text-center py-8 text-gray-400">Nenhum usuário encontrado</div>
+    </div>
+
+    <!-- Modal de edição/criação -->
+    <div x-show="modalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" @click.self="modalOpen = false">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold" x-text="form.id ? 'Editar Usuário' : 'Novo Usuário'"></h2>
+                    <button @click="modalOpen = false" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="salvar()" class="space-y-4">
+                    <!-- Dados básicos -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                            <input type="text" x-model="form.first_name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Sobrenome</label>
+                            <input type="text" x-model="form.last_name" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Usuário *</label>
+                            <input type="text" x-model="form.username" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                            <input type="email" x-model="form.email" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <div x-show="!form.id">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Senha *</label>
+                        <input type="password" x-model="form.password" :required="!form.id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Mín. 6 caracteres">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Telefone</label>
+                            <input type="tel" x-model="form.phone" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
+                            <input type="tel" x-model="form.whatsapp" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Perfil e território -->
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">Perfil e Território</h3>
+
+                        <div class="mb-3">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Perfil de acesso *</label>
+                            <select x-model="form.role" @change="onRoleChange()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                                <template x-for="r in roles" :key="r.value">
+                                    <option :value="r.value" x-text="r.label"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Região</label>
+                                <select x-model="form.region" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                                    <option value="">— Todas —</option>
+                                    <template x-for="r in regioes" :key="r.id">
+                                        <option :value="r.id" x-text="r.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Cidade</label>
+                                <select x-model="form.city" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                                    <option value="">— Todas —</option>
+                                    <template x-for="c in cidadesFiltradas" :key="c.id">
+                                        <option :value="c.id" x-text="c.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Módulos -->
+                    <div class="border-t pt-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-sm font-semibold text-gray-700">Módulos permitidos</h3>
+                            <button type="button" @click="resetModulos()" class="text-xs text-primary-600 hover:underline">Usar padrão do perfil</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <template x-for="m in allModules" :key="m.value">
+                                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" :value="m.value" x-model="form.allowed_modules"
+                                           class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                                    <span x-text="m.label"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="border-t pt-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" x-model="form.is_active_campaign" class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                            <span class="text-sm font-medium text-gray-700">Ativo na campanha</span>
+                        </label>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" :disabled="salvando"
+                                class="flex-1 bg-primary-700 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-primary-800 disabled:opacity-50">
+                            <span x-show="!salvando" x-text="form.id ? 'Salvar Alterações' : 'Criar Usuário'"></span>
+                            <span x-show="salvando">Salvando...</span>
+                        </button>
+                        <button type="button" @click="modalOpen = false"
+                                class="px-6 py-2.5 rounded-lg text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200">
+                            Cancelar
+                        </button>
+                    </div>
+
+                    <div x-show="erro" class="text-red-600 text-sm bg-red-50 p-3 rounded-lg" x-text="erro"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function usuariosApp() {
+    return {
+        usuarios: [],
+        loading: true,
+        modalOpen: false,
+        salvando: false,
+        erro: '',
+        filtro: { busca: '', role: '', active: 'true' },
+        regioes: [],
+        cidades: [],
+        form: {},
+
+        roles: [
+            { value: 'admin', label: 'Administrador' },
+            { value: 'coordinator_state', label: 'Coordenador Estadual' },
+            { value: 'coordinator_region', label: 'Coordenador Regional' },
+            { value: 'coordinator_city', label: 'Coordenador Municipal' },
+            { value: 'coordinator_neighborhood', label: 'Coordenador de Bairro' },
+            { value: 'volunteer', label: 'Voluntário / Cabo' },
+            { value: 'viewer', label: 'Visualizador' },
+        ],
+
+        allModules: [
+            { value: 'dashboard', label: 'Dashboard' },
+            { value: 'contatos', label: 'Contatos' },
+            { value: 'eventos', label: 'Eventos' },
+            { value: 'campanhas', label: 'Campanhas/Demandas' },
+            { value: 'mapas', label: 'Mapas' },
+            { value: 'eleicoes', label: 'Eleições' },
+            { value: 'comunicacoes', label: 'Comunicações' },
+            { value: 'financeiro', label: 'Financeiro' },
+            { value: 'campo', label: 'Campo Mobile' },
+            { value: 'usuarios', label: 'Gestão de Usuários' },
+        ],
+
+        defaultModules: {
+            'admin': ['dashboard','contatos','eventos','campanhas','mapas','eleicoes','comunicacoes','financeiro','campo','usuarios'],
+            'coordinator_state': ['dashboard','contatos','eventos','campanhas','mapas','eleicoes','comunicacoes','campo'],
+            'coordinator_region': ['dashboard','contatos','eventos','campanhas','mapas','campo'],
+            'coordinator_city': ['dashboard','contatos','eventos','campo'],
+            'coordinator_neighborhood': ['contatos','eventos','campo'],
+            'volunteer': ['campo'],
+            'viewer': ['dashboard','mapas','eleicoes'],
+        },
+
+        get cidadesFiltradas() {
+            if (!this.form.region) return this.cidades;
+            return this.cidades.filter(c => String(c.region_id) === String(this.form.region));
+        },
+
+        async load() {
+            this.loading = true;
+            try {
+                let url = '/api/v1/accounts/users/?';
+                if (this.filtro.busca) url += `search=${encodeURIComponent(this.filtro.busca)}&`;
+                if (this.filtro.role) url += `role=${this.filtro.role}&`;
+                if (this.filtro.active) url += `is_active_campaign=${this.filtro.active}&`;
+
+                const data = await API.get(url);
+                this.usuarios = data;
+
+                // Carregar regiões/cidades se ainda não carregou
+                if (!this.regioes.length) {
+                    this.regioes = await API.get('/api/v1/accounts/regioes/');
+                    this.cidades = await API.get('/api/v1/campo/cidades/');
+                }
+            } catch (e) {
+                console.error('Erro ao carregar usuários:', e);
+            }
+            this.loading = false;
+        },
+
+        novoUsuario() {
+            this.form = {
+                id: null,
+                username: '',
+                first_name: '',
+                last_name: '',
+                email: '',
+                password: '',
+                phone: '',
+                whatsapp: '',
+                role: 'volunteer',
+                region: '',
+                city: '',
+                allowed_modules: ['campo'],
+                is_active_campaign: true,
+            };
+            this.erro = '';
+            this.modalOpen = true;
+        },
+
+        editar(u) {
+            this.form = {
+                id: u.id,
+                username: u.username,
+                first_name: u.first_name,
+                last_name: u.last_name,
+                email: u.email,
+                password: '',
+                phone: u.phone || '',
+                whatsapp: u.whatsapp || '',
+                role: u.role,
+                region: u.region || '',
+                city: u.city || '',
+                allowed_modules: u.allowed_modules || [],
+                is_active_campaign: u.is_active_campaign,
+            };
+            this.erro = '';
+            this.modalOpen = true;
+        },
+
+        onRoleChange() {
+            this.form.allowed_modules = [...(this.defaultModules[this.form.role] || [])];
+        },
+
+        resetModulos() {
+            this.form.allowed_modules = [...(this.defaultModules[this.form.role] || [])];
+        },
+
+        async salvar() {
+            if (!this.form.username) { this.erro = 'Usuário é obrigatório'; return; }
+            if (!this.form.id && (!this.form.password || this.form.password.length < 6)) {
+                this.erro = 'Senha deve ter no mínimo 6 caracteres';
+                return;
+            }
+            this.salvando = true;
+            this.erro = '';
+
+            try {
+                const payload = { ...this.form };
+                if (payload.region) payload.region = parseInt(payload.region);
+                else payload.region = null;
+                if (payload.city) payload.city = parseInt(payload.city);
+                else payload.city = null;
+                if (!payload.password) delete payload.password;
+
+                if (this.form.id) {
+                    await API.patch(`/api/v1/accounts/users/${this.form.id}/`, payload);
+                } else {
+                    await API.post('/api/v1/accounts/users/', payload);
+                }
+                this.modalOpen = false;
+                await this.load();
+            } catch (e) {
+                console.error('Erro ao salvar:', e);
+                if (e.data) {
+                    const msgs = Object.values(e.data).flat();
+                    this.erro = msgs.join('. ');
+                } else {
+                    this.erro = 'Erro ao salvar usuário';
+                }
+            }
+            this.salvando = false;
+        },
+
+        async toggleAtivo(u) {
+            try {
+                await API.patch(`/api/v1/accounts/users/${u.id}/`, {
+                    is_active_campaign: !u.is_active_campaign
+                });
+                u.is_active_campaign = !u.is_active_campaign;
+            } catch (e) {
+                console.error('Erro ao alterar status:', e);
+            }
+        },
+
+        roleClass(role) {
+            const map = {
+                'admin': 'bg-purple-100 text-purple-700',
+                'coordinator_state': 'bg-blue-100 text-blue-700',
+                'coordinator_region': 'bg-primary-100 text-primary-700',
+                'coordinator_city': 'bg-green-100 text-green-700',
+                'coordinator_neighborhood': 'bg-yellow-100 text-yellow-700',
+                'volunteer': 'bg-orange-100 text-orange-700',
+                'viewer': 'bg-gray-100 text-gray-600',
+            };
+            return map[role] || 'bg-gray-100 text-gray-600';
+        }
+    };
+}
+</script>
+{% endblock %}

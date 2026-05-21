@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from apps.campaigns.views_frontend import kanban_view, itinerary_list, itinerary_detail, content_list
 from apps.dashboard.urls_campo import campo_pages, campo_api
+from apps.accounts.views_usuarios import usuarios_page
 
 urlpatterns = [
     # Admin (apenas para alimentar dados)
@@ -32,6 +33,9 @@ urlpatterns = [
     path('conteudos/', content_list),
     path('eventos/', include('apps.events.urls_frontend')),
     path('eleicoes/', include('apps.elections.urls_frontend')),
+
+    # Gestão de usuários
+    path('usuarios/', usuarios_page, name='usuarios'),
 
     # PWA Campo (mobile)
     path('campo/', include(campo_pages)),

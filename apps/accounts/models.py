@@ -2,6 +2,32 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
+# Módulos disponíveis no CRM
+MODULES = [
+    ('dashboard', 'Dashboard'),
+    ('contatos', 'Contatos'),
+    ('eventos', 'Eventos'),
+    ('campanhas', 'Campanhas/Demandas'),
+    ('mapas', 'Mapas'),
+    ('eleicoes', 'Eleições'),
+    ('comunicacoes', 'Comunicações'),
+    ('financeiro', 'Financeiro'),
+    ('campo', 'Campo Mobile'),
+    ('usuarios', 'Gestão de Usuários'),
+]
+
+# Módulos padrão por perfil
+DEFAULT_MODULES = {
+    'admin': [m[0] for m in MODULES],
+    'coordinator_state': ['dashboard', 'contatos', 'eventos', 'campanhas', 'mapas', 'eleicoes', 'comunicacoes', 'campo'],
+    'coordinator_region': ['dashboard', 'contatos', 'eventos', 'campanhas', 'mapas', 'campo'],
+    'coordinator_city': ['dashboard', 'contatos', 'eventos', 'campo'],
+    'coordinator_neighborhood': ['contatos', 'eventos', 'campo'],
+    'volunteer': ['campo'],
+    'viewer': ['dashboard', 'mapas', 'eleicoes'],
+}
+
+
 class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Administrador'
@@ -25,6 +51,10 @@ class User(AbstractUser):
     )
     photo = models.ImageField('Foto', upload_to='users/photos/', blank=True)
     is_active_campaign = models.BooleanField('Ativo na campanha', default=True)
+    allowed_modules = models.JSONField(
+        'Módulos permitidos', default=list, blank=True,
+        help_text='Lista de módulos que o usuário pode acessar. Vazio = usa padrão do perfil.',
+    )
 
     class Meta:
         verbose_name = 'Usuário'
@@ -32,3 +62,33 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.get_full_name() or self.username
+
+    def get_modules(self):
+        """Retorna módulos permitidos (custom ou padrão do perfil)."""
+        if self.allowed_modules:
+            return self.allowed_modules
+        return DEFAULT_MODULES.get(self.role, [])
+
+    def has_module(self, module):
+        """Verifica se o usuário tem acesso a um módulo."""
+        if self.role == 'admin':
+            return True
+        return module in self.get_modules()
+
+    def is_admin(self):
+        return self.role == 'admin'
+
+    def is_territorial(self):
+        """Retorna True se o usuário tem filtro territorial (não é admin/estadual)."""
+        return self.role not in ('admin', 'coordinator_state')
+
+    def get_territory_filter(self):
+        """Retorna dict para filtrar querysets pelo território do usuário."""
+        if not self.is_territorial():
+            return {}
+        if self.role == 'coordinator_city' or self.role == 'coordinator_neighborhood':
+            if self.city_id:
+                return {'city_id': self.city_id}
+        if self.region_id:
+            return {'region_id': self.region_id}
+        return {}

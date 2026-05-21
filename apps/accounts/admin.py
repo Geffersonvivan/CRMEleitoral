@@ -9,6 +9,6 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ('role', 'is_active_campaign', 'region')
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Campanha', {
-            'fields': ('role', 'phone', 'whatsapp', 'city', 'region', 'photo', 'is_active_campaign'),
+            'fields': ('role', 'phone', 'whatsapp', 'city', 'region', 'photo', 'is_active_campaign', 'allowed_modules'),
         }),
     )

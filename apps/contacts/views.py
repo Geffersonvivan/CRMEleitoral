@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Prefetch, Q
+from apps.accounts.mixins import TerritoryFilterMixin
 from .models import Contact, CompanyPartner, Interaction, Tag
 from .serializers import (
     ContactListSerializer, ContactDetailSerializer,
@@ -9,7 +10,7 @@ from .serializers import (
 )
 
 
-class ContactViewSet(viewsets.ModelViewSet):
+class ContactViewSet(TerritoryFilterMixin, viewsets.ModelViewSet):
     queryset = Contact.objects.select_related('city', 'region').annotate(
         referrals_count=Count('referrals')
     ).order_by('full_name')

@@ -50,23 +50,41 @@ def campo_cidade(request):
 # API endpoints para o PWA
 # ====================================================
 
+def _territory(request):
+    """Retorna filtro territorial do usuário logado."""
+    return request.user.get_territory_filter()
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def campo_home_api(request):
     """KPIs e próximos eventos para a home do campo."""
     hoje = date.today()
-    amanha = hoje + timedelta(days=1)
+    tf = _territory(request)
 
-    contatos_hoje = Contact.objects.filter(created_at__date=hoje).count()
+    # Filtro territorial para contatos/interações
+    ct_filter = {}
+    if 'city_id' in tf:
+        ct_filter = {'city_id': tf['city_id']}
+    elif 'region_id' in tf:
+        ct_filter = {'region_id': tf['region_id']}
+
+    ev_filter = {}
+    if 'city_id' in tf:
+        ev_filter = {'city_id': tf['city_id']}
+    elif 'region_id' in tf:
+        ev_filter = {'region_id': tf['region_id']}
+
+    contatos_hoje = Contact.objects.filter(created_at__date=hoje, **ct_filter).count()
     interacoes_hoje = Interaction.objects.filter(created_at__date=hoje).count()
     demandas_pendentes = Task.objects.exclude(
         phase__in=['executed', 'completed']
-    ).count()
-    eventos_hoje = Event.objects.filter(date__date=hoje).count()
+    ).filter(**ev_filter).count()
+    eventos_hoje = Event.objects.filter(date__date=hoje, **ev_filter).count()
 
     # Próximos 5 eventos
     proximos = Event.objects.filter(
-        date__gte=hoje
+        date__gte=hoje, **ev_filter
     ).select_related('city').order_by('date')[:5]
 
     eventos_list = [{
@@ -93,7 +111,14 @@ def campo_home_api(request):
 def campo_cidades_api(request):
     """Lista de cidades para select ou busca."""
     search = request.query_params.get('search', '')
+    tf = _territory(request)
     qs = City.objects.select_related('region').all()
+
+    # Filtro territorial
+    if 'city_id' in tf:
+        qs = qs.filter(id=tf['city_id'])
+    elif 'region_id' in tf:
+        qs = qs.filter(region_id=tf['region_id'])
 
     if search:
         qs = qs.filter(name__icontains=search)
