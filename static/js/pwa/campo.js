@@ -89,6 +89,7 @@ function campoHome() {
     return {
         stats: { contatos_hoje: '-', interacoes_hoje: '-', demandas_pendentes: '-', eventos_hoje: '-' },
         eventos: [],
+        resumo: null,
         loading: true,
 
         async load() {
@@ -96,6 +97,7 @@ function campoHome() {
                 const data = await API.get('/api/v1/campo/home/');
                 this.stats = data.stats;
                 this.eventos = data.proximos_eventos || [];
+                this.resumo = data.resumo || null;
             } catch (e) {
                 console.warn('Erro ao carregar home:', e);
             }

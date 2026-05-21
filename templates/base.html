@@ -37,7 +37,25 @@
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
-<body class="bg-gray-50 min-h-screen" x-data="{ sidebarOpen: false }">
+<body class="bg-gray-50 min-h-screen" x-data="{ sidebarOpen: false, showMobileBanner: false }" x-init="showMobileBanner = window.innerWidth < 768 && !sessionStorage.getItem('dismissMobile')">
+    <!-- Banner mobile: sugerir versão campo -->
+    <div x-show="showMobileBanner" x-transition
+         class="fixed inset-x-0 top-0 z-[60] bg-primary-900 text-white px-4 py-3 flex items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-accent-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            <div>
+                <div class="text-sm font-semibold">Versão mobile disponível</div>
+                <div class="text-xs text-primary-200">Mais rápida e otimizada para celular</div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <a href="/campo/" class="bg-accent-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Abrir</a>
+            <button @click="showMobileBanner = false; sessionStorage.setItem('dismissMobile', '1')" class="text-primary-300 p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </div>
+
     {% include 'includes/navbar.html' %}
 
     <div class="flex">

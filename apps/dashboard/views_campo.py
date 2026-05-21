@@ -5,7 +5,7 @@ Inclui views de template e endpoints de API.
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, F, Q
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -95,6 +95,40 @@ def campo_home_api(request):
         'city_name': ev.city.name if ev.city else '',
     } for ev in proximos]
 
+    # Resumo estratégico (leve, sem mapa)
+    contatos_qs = Contact.objects.filter(is_active=True, **ct_filter)
+    total_contatos = contatos_qs.count()
+    total_apoiadores = contatos_qs.filter(
+        category__in=['apoiador', 'coordenador_regional', 'coordenador_municipal', 'coordenador_bairro', 'lideranca']
+    ).count()
+
+    cidades_com_contato = contatos_qs.exclude(city__isnull=True).values('city').distinct().count()
+
+    city_qs = City.objects.all()
+    if 'city_id' in tf:
+        city_qs = city_qs.filter(id=tf['city_id'])
+    elif 'region_id' in tf:
+        city_qs = city_qs.filter(region_id=tf['region_id'])
+    total_cidades = city_qs.count()
+
+    # Penetração média
+    pen_avg = city_qs.filter(
+        registered_voters__gt=0
+    ).annotate(
+        pen=100.0 * F('votes_sorgatto_2022') / F('registered_voters')
+    ).aggregate(avg=Avg('pen'))
+    penetracao_media = round(pen_avg['avg'] or 0, 1)
+
+    # Top 5 cidades com mais contatos
+    top_cidades = list(
+        contatos_qs.exclude(city__isnull=True).values(
+            'city__name'
+        ).annotate(
+            count=Count('id')
+        ).order_by('-count')[:5]
+    )
+    top_cidades_list = [{'name': c['city__name'], 'count': c['count']} for c in top_cidades]
+
     return Response({
         'stats': {
             'contatos_hoje': contatos_hoje,
@@ -103,6 +137,14 @@ def campo_home_api(request):
             'eventos_hoje': eventos_hoje,
         },
         'proximos_eventos': eventos_list,
+        'resumo': {
+            'total_contatos': total_contatos,
+            'total_apoiadores': total_apoiadores,
+            'cidades_cobertas': cidades_com_contato,
+            'total_cidades': total_cidades,
+            'penetracao_media': penetracao_media,
+            'top_cidades': top_cidades_list,
+        },
     })
 
 
