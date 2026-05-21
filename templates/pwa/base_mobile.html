@@ -1,0 +1,114 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#002776">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="CRM Eleitoral - Campo">
+    <title>{% block title %}Campo{% endblock %} | CRM Sorgatto</title>
+
+    <link rel="manifest" href="{% static 'js/pwa/manifest.json' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/icons/icon-192x192.png' %}">
+
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#e6edf8', 100: '#b3c9ea', 200: '#80a5dc', 300: '#4d81ce', 400: '#265ebf', 500: '#003DA5', 600: '#0046b8', 700: '#003a9a', 800: '#002e7d', 900: '#002776' },
+                        accent: { 50: '#e6f5ec', 100: '#b3e2c7', 200: '#80cea2', 300: '#4dba7d', 400: '#26ab62', 500: '#009c3b' },
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+        .toast { animation: slideUp .3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        body { -webkit-tap-highlight-color: transparent; }
+        input, select, textarea { font-size: 16px !important; } /* Prevent iOS zoom */
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen pb-20" x-data="pwaApp()" x-cloak>
+
+    <!-- Top bar -->
+    <header class="bg-primary-900 text-white fixed top-0 w-full z-50 safe-area-top">
+        <div class="flex items-center justify-between px-4 py-3">
+            <div class="flex items-center gap-2">
+                {% block header_left %}
+                <span class="text-lg font-bold">CRM CAMPO</span>
+                {% endblock %}
+            </div>
+            <div class="flex items-center gap-3">
+                {% block header_right %}
+                <span x-show="pendingSync > 0"
+                      class="bg-yellow-500 text-xs font-bold px-2 py-0.5 rounded-full"
+                      x-text="pendingSync + ' pendente' + (pendingSync > 1 ? 's' : '')"></span>
+                <span x-show="!online" class="bg-red-500 text-xs font-bold px-2 py-0.5 rounded-full">Offline</span>
+                {% endblock %}
+            </div>
+        </div>
+    </header>
+    <div class="h-14"></div>
+
+    <!-- Content -->
+    <main class="px-4 py-3">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast messages -->
+    <div x-show="toast" x-transition
+         class="fixed bottom-24 left-4 right-4 z-50">
+        <div class="toast rounded-lg px-4 py-3 shadow-lg text-white text-sm font-medium text-center"
+             :class="toastType === 'success' ? 'bg-green-600' : toastType === 'error' ? 'bg-red-600' : 'bg-primary-700'"
+             x-text="toast"></div>
+    </div>
+
+    <!-- Bottom navigation -->
+    <nav class="bottom-nav fixed bottom-0 w-full bg-white border-t border-gray-200 z-50">
+        <div class="grid grid-cols-5 py-1">
+            <a href="/campo/" class="flex flex-col items-center py-2 {% block nav_home %}text-gray-400{% endblock %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
+                <span class="text-[10px] mt-0.5">Início</span>
+            </a>
+            <a href="/campo/contato/" class="flex flex-col items-center py-2 {% block nav_contato %}text-gray-400{% endblock %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                <span class="text-[10px] mt-0.5">Contato</span>
+            </a>
+            <a href="/campo/interacao/" class="flex flex-col items-center py-2 {% block nav_interacao %}text-gray-400{% endblock %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                <span class="text-[10px] mt-0.5">Interação</span>
+            </a>
+            <a href="/campo/checkin/" class="flex flex-col items-center py-2 {% block nav_checkin %}text-gray-400{% endblock %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span class="text-[10px] mt-0.5">Check-in</span>
+            </a>
+            <a href="/campo/cidade/" class="flex flex-col items-center py-2 {% block nav_cidade %}text-gray-400{% endblock %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <span class="text-[10px] mt-0.5">Cidade</span>
+            </a>
+        </div>
+    </nav>
+
+    <script src="{% static 'js/app.js' %}"></script>
+    <script src="{% static 'js/pwa/campo.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+
+    <script>
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('{% static "js/pwa/service-worker.js" %}', { scope: '/campo/' })
+            .then(reg => console.log('SW registered', reg.scope))
+            .catch(err => console.warn('SW failed', err));
+    }
+    </script>
+</body>
+</html>

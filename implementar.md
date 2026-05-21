@@ -501,3 +501,391 @@ ROTEIRO (/roteiros/)
 7. Equipe registra fotos, publica post, registra 15 novos apoiadores
 8. Demanda vai para **Concluida**, apoiadores entram no CRM
 9. Chapeco fica verde no mapa, penetracao sobe no mapa de calor
+
+---
+
+# PARTE 6 — Funcionalidades Estrategicas para Eleicao 2026
+
+Modulos focados em maximizar votos e organizar a campanha para Deputado Estadual.
+
+---
+
+## 1. Painel de Metas e Progresso [PRIORIDADE ALTA]
+
+O model `VoteGoal` ja existe mas nao esta integrado ao dashboard. Criar painel visual de acompanhamento.
+
+### Funcionalidades
+
+- Termometro estadual: meta total vs estimativa atual de votos
+- Metas por macro-regiao, regiao e cidade com barras de progresso
+- Ranking de cidades por gap a fechar (meta - estimativa)
+- Projecao temporal: "no ritmo atual de captacao, chegaremos a X votos"
+- Comparativo com quociente eleitoral estimado (dep. estadual SC)
+- Alertas visuais para regioes abaixo do esperado
+
+### Interface
+
+- Nova aba "Metas" no dashboard principal (ao lado dos mapas)
+- Cards com KPIs: total de votos estimados, % da meta, dias restantes
+- Grafico de evolucao temporal (linha)
+- Tabela por regiao com sparklines de progresso
+- Drill-down: clicar na regiao mostra cidades
+
+### Arquivos a criar/alterar
+
+- `apps/dashboard/views.py` — novo `VoteGoalDashboardAPI`
+- `templates/dashboard/index.html` — nova aba de metas
+- `static/js/dashboard/goals.js` — graficos e interatividade
+
+---
+
+## 2. Gestao de Cabos Eleitorais [PRIORIDADE ALTA]
+
+Modulo para cadastrar e gerenciar cabos eleitorais — a base operacional da eleicao.
+
+### Model: CaboEleitoral
+
+- `contact` (FK Contact) — vinculo com contato existente
+- `city`, `neighborhood` (FK) — area de atuacao
+- `electoral_zone`, `electoral_section` — secao eleitoral de atuacao
+- `meta_votos` (int) — meta individual de votos a entregar
+- `votos_estimados` (int) — estimativa atual de votos confirmados
+- `status` (choices): ativo, inativo, destaque
+- `supervisor` (FK CaboEleitoral, self) — hierarquia de cabos
+- `notes`
+
+### Funcionalidades
+
+- Cadastro de cabos com meta individual de votos
+- Cada cabo vinculado a bairro/secao eleitoral
+- Tracking de eleitores comprometidos por cabo
+- Ranking de performance (votos estimados / meta)
+- Arvore hierarquica: coordenador → cabo → eleitores
+- Dashboard com metricas: total de cabos, cobertura por bairro, cabos inativos
+- Mapa mostrando cobertura de cabos por cidade/bairro
+
+### Interface
+
+- Nova pagina `/cabos/` com lista e filtros
+- Modal de cadastro vinculado ao contato existente
+- Ranking visual com barras de progresso por cabo
+- Mapa de cobertura: bairros com/sem cabo ativo
+
+### Arquivos a criar
+
+- `apps/campaigns/models.py` — adicionar model `CaboEleitoral`
+- `apps/campaigns/views.py` — ViewSet + API
+- `templates/campaigns/cabos.html` — pagina frontend
+- `apps/dashboard/views.py` — novo `CabosDashboardAPI`
+
+---
+
+## 3. Pesquisa de Campo / Enquete [PRIORIDADE ALTA]
+
+Coletar intencao de voto e sentimento do eleitor em campo.
+
+### Models
+
+**Survey (Pesquisa)**
+- `title`, `description`
+- `start_date`, `end_date`
+- `target_cities`, `target_regions` (M2M)
+- `status` (choices): rascunho, ativa, encerrada
+- `created_by` (FK User)
+
+**SurveyQuestion (Pergunta)**
+- `survey` (FK)
+- `text` — texto da pergunta
+- `question_type` (choices): multipla_escolha, escala, texto_livre, sim_nao
+- `options` (JSONField) — opcoes para multipla escolha
+- `order` (int)
+- `is_required` (bool)
+
+**SurveyResponse (Resposta)**
+- `survey` (FK)
+- `respondent_name` (opcional)
+- `city`, `neighborhood` (FK)
+- `electoral_zone`, `electoral_section`
+- `collected_by` (FK User)
+- `collected_at` (datetime)
+- `latitude`, `longitude` — geolocalizacao da coleta
+- `answers` (JSONField) — respostas em formato {question_id: answer}
+
+### Funcionalidades
+
+- Formulario mobile-friendly para pesquisa porta-a-porta
+- Perguntas configuraveis: intencao de voto, rejeicao, prioridades do eleitor
+- Dashboard com resultados por cidade/bairro em tempo real
+- Graficos de evolucao temporal da intencao de voto
+- Comparativo entre regioes
+- Exportacao de dados (CSV/PDF)
+- Mapa de calor com intencao de voto por area
+
+### Interface
+
+- Nova pagina `/pesquisas/` com lista de pesquisas
+- Formulario responsivo para coleta em campo (funciona no celular)
+- Dashboard de resultados com graficos (pizza, barras, evolucao)
+- Filtros por cidade, regiao, periodo
+
+---
+
+## 4. Agenda Integrada do Candidato [PRIORIDADE MEDIA]
+
+Visao unificada de calendario com todos os compromissos.
+
+### Funcionalidades
+
+- Calendario mensal/semanal com eventos + paradas de roteiro + demandas
+- Timeline diaria mostrando deslocamentos entre cidades
+- Mapa com rota do dia/semana
+- Identificar cidades sem visita ha mais de 30 dias (alerta visual)
+- Sugestao automatica: "voce estara em Chapeco dia X, considere visitar tambem Xaxim (15km)"
+- Cores por tipo: evento (azul), roteiro (verde), demanda (amarelo), livre (cinza)
+
+### Interface
+
+- Nova pagina `/agenda/` com calendario interativo
+- Vista mensal, semanal e diaria
+- Sidebar com proximos compromissos
+- Integracao com mapa: clicar no dia mostra rota no mapa
+
+### Arquivos a criar/alterar
+
+- `templates/campaigns/agenda.html` — pagina do calendario
+- `static/js/agenda.js` — logica do calendario (FullCalendar ou similar)
+- `apps/dashboard/views.py` — novo `AgendaAPI` consolidando eventos + roteiros + demandas
+
+---
+
+## 5. Simulador de Cenarios Eleitorais [PRIORIDADE MEDIA]
+
+Ferramenta de analise "e se" para tomada de decisao estrategica.
+
+### Funcionalidades
+
+- Ajustar penetracao por regiao/cidade e ver impacto no total de votos
+- Comparar com quociente eleitoral estimado (dep. estadual SC 2026)
+- Tres cenarios pre-definidos: otimista, realista, pessimista
+- Slider interativo por regiao para ajustar % de crescimento
+- Grafico comparativo: cenarios vs meta vs quociente
+- Identificar onde cada 1% a mais gera mais votos absolutos (ROI do esforco)
+- Salvar cenarios para comparacao futura
+
+### Interface
+
+- Nova aba "Simulador" no dashboard ou pagina dedicada `/simulador/`
+- Sliders por macro-regiao com preview em tempo real
+- Tabela com impacto por cidade
+- Grafico de barras empilhadas mostrando composicao do total
+
+---
+
+## 6. PWA Mobile para Campo [PRIORIDADE ALTA]
+
+App progressivo para uso em campo por coordenadores e cabos eleitorais.
+
+### Funcionalidades
+
+- Cadastro rapido de contatos (camera para foto + dados basicos)
+- Check-in em eventos com geolocalizacao automatica
+- Registrar interacoes porta-a-porta (tipo, resultado, proximo passo)
+- Consultar dados da cidade onde esta (penetracao, meta, coordenador)
+- Lista de tarefas do dia (demandas atribuidas ao usuario)
+- Funcionar offline com sincronizacao posterior (Service Worker + IndexedDB)
+- Notificacoes push para alertas
+
+### Requisitos tecnicos
+
+- Service Worker para cache offline
+- IndexedDB para armazenamento local
+- Background Sync para enviar dados quando reconectar
+- Camera API para fotos de contatos
+- Geolocation API para check-in
+- Manifest.json ja parcialmente configurado (templates/pwa/)
+
+### Telas principais
+
+1. Home: KPIs do dia (contatos, interacoes, proxima tarefa)
+2. Novo Contato: formulario simplificado + camera
+3. Interacao Rapida: selecionar contato → tipo → resultado
+4. Minha Agenda: tarefas e eventos do dia
+5. Cidade Atual: dados da cidade baseado em GPS
+
+### 6.1 Funcionalidades detalhadas do PWA
+
+#### 6.1.1 Registro de Promessa de Voto [IMPACTO MUITO ALTO | ESFORCO BAIXO]
+
+Botao rapido no celular: "Vai votar no LS?" → Sim / Talvez / Nao.
+Registra com data, local (GPS) e cabo responsavel.
+Dashboard mostra evolucao diaria de promessas por cidade.
+Comparar promessas vs meta da cidade.
+
+#### 6.1.2 Captacao por QR Code [IMPACTO MUITO ALTO | ESFORCO BAIXO]
+
+Gera QR Code personalizado por cabo/evento.
+Eleitor escaneia → abre formulario de auto-cadastro ("Quero apoiar o LS").
+Ja vincula automaticamente ao cabo que gerou e ao evento.
+Ideal para comicios, carreatas, feiras.
+
+#### 6.1.3 Modo Corpo a Corpo (Porta a Porta) [IMPACTO MUITO ALTO | ESFORCO MEDIO]
+
+Tela otimizada para visitas sequenciais:
+1. Aperta "Iniciar rota"
+2. Bate na porta → registra: atendeu? Qual reacao? Promessa de voto?
+3. Proxima casa → repete
+4. No final: "Voce visitou 23 casas, 14 promessas, 3 indecisos"
+Gamificacao: ranking diario de cabos por visitas.
+
+#### 6.1.4 Termometro da Cidade (Consulta Rapida) [IMPACTO ALTO | ESFORCO BAIXO]
+
+Cabo chega numa cidade → tela mostra resumo instantaneo:
+- Meta: 500 votos | Estimado: 320 (64%)
+- Coordenador local: Joao (tel)
+- Ultima visita do LS: 15 dias atras
+- Prefeito: aliado/neutro/adversario
+- Top 3 demandas pendentes
+- "Esta cidade precisa de atencao — sem visita ha 30 dias"
+
+#### 6.1.5 Radar de Eleitores Proximos [IMPACTO ALTO | ESFORCO MEDIO]
+
+GPS do celular mostra no mapa os contatos cadastrados num raio de 500m.
+"Dona Maria mora aqui perto e esta como indecisa — vale uma visita."
+Otimiza deslocamento porta-a-porta.
+
+#### 6.1.6 Arvore de Indicacoes (Boca a Boca) [IMPACTO ALTO | ESFORCO MEDIO]
+
+Cabo pergunta: "Conhece alguem que votaria no LS?"
+Cadastra indicacao vinculada ao contato original.
+Cria rede de referencia rastreavel: Joao → indicou Maria → indicou Pedro.
+Metrica: "Joao ja trouxe 12 apoiadores para a campanha."
+
+#### 6.1.7 Pesquisa Relampago (3 perguntas) [IMPACTO ALTO | ESFORCO BAIXO]
+
+Pesquisa rapida configuravel pela coordenacao.
+Ex: "Qual o maior problema do seu bairro?" (saude/seguranca/emprego/estradas).
+Cabo aplica em 30 segundos durante qualquer interacao.
+Alimenta mapa de prioridades do eleitor por regiao.
+LS usa os dados nos discursos: "Sei que aqui em Xaxim, 68% de voces pedem mais saude."
+
+#### 6.1.8 Compartilhamento de Material de Campanha [IMPACTO MEDIO | ESFORCO BAIXO]
+
+Biblioteca de material de campanha no celular.
+Santinhos digitais, videos curtos, artes para WhatsApp.
+Cabo seleciona → compartilha direto no WhatsApp do eleitor.
+Tracking: quantas vezes cada material foi compartilhado.
+
+#### 6.1.9 Check-in Inteligente em Eventos [IMPACTO MEDIO | ESFORCO BAIXO]
+
+Cabo/coordenador faz check-in no evento com GPS.
+Lista de convidados aparece → marca quem compareceu.
+Pos-evento: formulario rapido de avaliacao (1-5 estrelas + comentario).
+Fotos do evento ja sobem para o CRM.
+Metrica: taxa de comparecimento por tipo de evento.
+
+#### 6.1.10 Denuncia/Alerta de Campanha Adversaria [IMPACTO MEDIO | ESFORCO BAIXO]
+
+Cabo ve material irregular de adversario → tira foto, registra local.
+"Santinho do candidato X sendo distribuido na escola Y."
+Centraliza inteligencia sobre adversarios em tempo real.
+Coordenacao pode agir rapido.
+
+#### 6.1.11 Notificacao por Proximidade [IMPACTO MEDIO | ESFORCO ALTO]
+
+Cabo passa perto de uma cidade com alerta ativo.
+Push notification: "Voce esta perto de Ponte Serrada — sem coordenador e 0 contatos."
+Transforma deslocamento em oportunidade.
+
+#### 6.1.12 Mural de Recados por Cidade [IMPACTO BAIXO | ESFORCO MEDIO]
+
+Chat simples entre coordenadores/cabos de uma mesma cidade.
+"Amanha tem feira em Xaxim, quem pode ir?"
+Evita depender so de WhatsApp (onde informacao se perde).
+Historico pesquisavel.
+
+### Ordem de implementacao do PWA
+
+1. **Promessa de Voto** + **Termometro da Cidade** — impacto imediato, esforco baixo
+2. **QR Code de Captacao** — multiplica captacao em eventos
+3. **Modo Corpo a Corpo** — estrutura o porta-a-porta
+4. **Pesquisa Relampago** — inteligencia para discursos
+5. **Radar de Eleitores** + **Arvore de Indicacoes** — otimiza campo
+6. **Material de Campanha** + **Check-in Eventos** — apoio operacional
+7. **Denuncia Adversario** — inteligencia competitiva
+8. **Notificacao Proximidade** + **Mural de Recados** — refinamento
+
+---
+
+## 7. Alertas e Notificacoes Inteligentes [PRIORIDADE MEDIA]
+
+Sistema de alertas automaticos para a coordenacao.
+
+### Regras de alerta
+
+- Cidade sem visita ha 30+ dias → prioridade alta
+- Demandas vencidas ha mais de 7 dias → urgente
+- Meta de contatos nao atingida na regiao (< 50% da meta) → medio
+- Evento proximo (< 3 dias) sem confirmacao de presenca → alto
+- Cabo eleitoral inativo ha 15+ dias → medio
+- Regiao sem coordenador designado → alto
+- Cidade estrategica (Base Forte) perdendo contatos → urgente
+- Doacao pendente de verificacao ha 7+ dias → baixo
+
+### Interface
+
+- Icone de sino na navbar com contador de alertas nao lidos
+- Painel de alertas com filtros por prioridade e tipo
+- Email diario opcional para coordenadores com resumo de alertas
+- Alertas aparecem tambem no detalhe da cidade/regiao relevante
+
+### Model: Alert
+
+- `alert_type` (choices): visita, demanda, meta, evento, cabo, coordenador, contato, doacao
+- `priority` (choices): baixa, media, alta, urgente
+- `title`, `description`
+- `related_city`, `related_region` (FK, nullable)
+- `related_object_type`, `related_object_id` (GenericFK)
+- `is_read` (bool), `read_at` (datetime)
+- `assigned_to` (FK User)
+- `auto_generated` (bool)
+
+---
+
+## 8. Relatorio Semanal Automatico [PRIORIDADE MEDIA]
+
+PDF/email semanal para a coordenacao acompanhar a campanha.
+
+### Conteudo do relatorio
+
+- Periodo: semana X (DD/MM a DD/MM)
+- Novos contatos cadastrados (total + por categoria)
+- Visitas realizadas vs planejadas
+- Demandas concluidas / criadas / vencidas
+- Eventos realizados (com participacao)
+- Progresso das metas por macro-regiao (barras de progresso)
+- Top 5 cidades com melhor evolucao de contatos
+- Top 5 cidades que precisam de atencao (sem atividade)
+- Cabos eleitorais ativos vs inativos
+- Financeiro: doacoes recebidas vs despesas
+- Proximas acoes prioritarias da semana seguinte
+
+### Implementacao
+
+- Management command `generate_weekly_report` rodando via cron/Celery
+- Template HTML para visualizacao no browser
+- Conversao para PDF (weasyprint ou xhtml2pdf)
+- Envio por email para lista de coordenadores
+- Historico de relatorios acessivel no CRM
+
+---
+
+## Ordem de implementacao sugerida
+
+1. **Painel de Metas e Progresso** — usa model existente, maior visibilidade imediata
+2. **Gestao de Cabos Eleitorais** — estrutura operacional da campanha
+3. **PWA Mobile** — multiplica capacidade de coleta em campo
+4. **Pesquisa de Campo** — inteligencia sobre intencao de voto
+5. **Alertas Inteligentes** — manter a maquina funcionando
+6. **Agenda Integrada** — otimizar tempo do candidato
+7. **Relatorio Semanal** — visibilidade para a coordenacao
+8. **Simulador de Cenarios** — refinamento estrategico

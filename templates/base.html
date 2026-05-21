@@ -60,10 +60,13 @@
     </div>
 
     <script>
-    // Limpar qualquer Service Worker cacheado
+    // Limpar SWs do desktop (manter o do /campo/ para PWA)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
-            regs.forEach(r => r.unregister());
+            regs.forEach(r => {
+                if (r.scope && r.scope.includes('/campo/')) return;
+                r.unregister();
+            });
         });
     }
     </script>

@@ -1,0 +1,102 @@
+{% extends 'pwa/base_mobile.html' %}
+{% block title %}Interação{% endblock %}
+{% block nav_interacao %}text-primary-700 font-semibold{% endblock %}
+
+{% block header_left %}
+<a href="/campo/" class="p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+<span class="text-lg font-bold">Interação</span>
+{% endblock %}
+
+{% block content %}
+<div x-data="campoInteracao()" x-init="init()">
+
+    <!-- Buscar contato -->
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Buscar contato</label>
+        <input type="search" x-model="busca" @input.debounce.300ms="pesquisar()"
+               placeholder="Nome, telefone ou WhatsApp..."
+               class="w-full border border-gray-300 rounded-lg px-3 py-3">
+
+        <!-- Resultados -->
+        <div x-show="resultados.length > 0" class="mt-2 space-y-1">
+            <template x-for="c in resultados" :key="c.id">
+                <button @click="selecionarContato(c)" type="button"
+                        class="w-full text-left bg-white rounded-lg p-3 shadow-sm flex justify-between items-center active:bg-gray-50">
+                    <div>
+                        <div class="font-medium text-sm" x-text="c.full_name"></div>
+                        <div class="text-xs text-gray-500" x-text="c.city_name || c.category_display || ''"></div>
+                    </div>
+                    <div class="text-xs text-gray-400" x-text="c.phone || c.whatsapp || ''"></div>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- Contato selecionado -->
+    <template x-if="contato">
+        <div>
+            <div class="bg-primary-50 rounded-xl p-3 mb-4 flex justify-between items-center">
+                <div>
+                    <div class="font-semibold text-primary-800" x-text="contato.full_name"></div>
+                    <div class="text-xs text-primary-600" x-text="contato.city_name || ''"></div>
+                </div>
+                <button @click="contato = null" class="text-primary-400 p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <form @submit.prevent="salvar()" class="space-y-4">
+
+                <!-- Tipo de interação -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <template x-for="t in tipos" :key="t.value">
+                            <button type="button" @click="form.interaction_type = t.value"
+                                    :class="form.interaction_type === t.value ? 'bg-primary-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                                    class="py-2.5 rounded-lg text-sm font-medium transition-colors"
+                                    x-text="t.label"></button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Descrição -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">O que conversaram?</label>
+                    <textarea x-model="form.description" rows="3"
+                              class="w-full border border-gray-300 rounded-lg px-3 py-3"
+                              placeholder="Resumo da conversa..."></textarea>
+                </div>
+
+                <!-- Resultado -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
+                    <select x-model="form.outcome" class="w-full border border-gray-300 rounded-lg px-3 py-3 bg-white">
+                        <option value="">— Selecionar —</option>
+                        <option value="positivo">Positivo - Vai apoiar</option>
+                        <option value="neutro">Neutro - Indeciso</option>
+                        <option value="negativo">Negativo - Não vai apoiar</option>
+                        <option value="indicacao">Indicou outros contatos</option>
+                        <option value="demanda">Tem demanda/pedido</option>
+                    </select>
+                </div>
+
+                <!-- Próximo passo -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Próximo passo</label>
+                    <input type="text" x-model="form.next_action"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-3"
+                           placeholder="Ex: Retornar na semana que vem">
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" :disabled="salvando"
+                        class="w-full bg-green-600 text-white py-3.5 rounded-lg font-semibold text-base active:bg-green-700 disabled:opacity-50">
+                    <span x-show="!salvando">Registrar Interação</span>
+                    <span x-show="salvando">Salvando...</span>
+                </button>
+            </form>
+        </div>
+    </template>
+</div>
+{% endblock %}

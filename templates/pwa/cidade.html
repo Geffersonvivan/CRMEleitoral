@@ -1,0 +1,134 @@
+{% extends 'pwa/base_mobile.html' %}
+{% block title %}Cidade{% endblock %}
+{% block nav_cidade %}text-primary-700 font-semibold{% endblock %}
+
+{% block header_left %}
+<a href="/campo/" class="p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+<span class="text-lg font-bold">Cidade</span>
+{% endblock %}
+
+{% block content %}
+<div x-data="campoCidade()" x-init="init()">
+
+    <!-- Buscar cidade -->
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Buscar cidade</label>
+        <input type="search" x-model="busca" @input.debounce.300ms="pesquisar()"
+               placeholder="Nome da cidade..."
+               class="w-full border border-gray-300 rounded-lg px-3 py-3">
+
+        <div x-show="resultados.length > 0" class="mt-2 space-y-1">
+            <template x-for="c in resultados" :key="c.id">
+                <button @click="selecionarCidade(c)" type="button"
+                        class="w-full text-left bg-white rounded-lg p-3 shadow-sm flex justify-between items-center active:bg-gray-50">
+                    <div class="font-medium text-sm" x-text="c.name"></div>
+                    <div class="text-xs text-gray-400" x-text="c.region_name || ''"></div>
+                </button>
+            </template>
+        </div>
+
+        <button type="button" @click="detectarGPS()" class="mt-2 text-xs text-primary-600 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+            <span>Detectar por GPS</span>
+        </button>
+    </div>
+
+    <!-- Dados da cidade selecionada -->
+    <template x-if="cidade">
+        <div class="space-y-3">
+
+            <!-- Header cidade -->
+            <div class="bg-primary-900 text-white rounded-xl p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="text-lg font-bold" x-text="cidade.name"></div>
+                        <div class="text-xs text-primary-200" x-text="'Região ' + (cidade.region_name || '')"></div>
+                    </div>
+                    <button @click="cidade = null; busca = ''" class="text-primary-300 p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white rounded-xl p-3 shadow-sm text-center">
+                    <div class="text-xl font-bold text-primary-700" x-text="fmt(cidade.population)"></div>
+                    <div class="text-[10px] text-gray-500">População</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 shadow-sm text-center">
+                    <div class="text-xl font-bold text-blue-600" x-text="fmt(cidade.registered_voters)"></div>
+                    <div class="text-[10px] text-gray-500">Eleitores</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 shadow-sm text-center">
+                    <div class="text-xl font-bold text-accent-500" x-text="fmt(cidade.votes_sorgatto_2022)"></div>
+                    <div class="text-[10px] text-gray-500">Votos LS 2022</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 shadow-sm text-center">
+                    <div class="text-xl font-bold" x-text="cidade.penetration + '%'"
+                         :class="cidade.penetration > 5 ? 'text-green-600' : cidade.penetration > 2 ? 'text-yellow-600' : 'text-red-600'"></div>
+                    <div class="text-[10px] text-gray-500">Penetração LS</div>
+                </div>
+            </div>
+
+            <!-- Político -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h4 class="text-sm font-semibold text-gray-700 mb-2">Cenário Político</h4>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Prefeito</span>
+                        <span class="font-medium" x-text="cidade.mayor_name || '—'"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Partido Prefeito</span>
+                        <span class="font-medium" x-text="cidade.mayor_party || '—'"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Vereadores PL</span>
+                        <span class="font-medium" x-text="(cidade.num_vereadores_pl || 0) + '/' + (cidade.num_vereadores || 0)"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Meta de votos</span>
+                        <span class="font-medium" x-text="fmt(cidade.meta_votes)"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contatos na cidade -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h4 class="text-sm font-semibold text-gray-700 mb-2">Rede na Cidade</h4>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                        <div class="text-lg font-bold text-primary-700" x-text="cidade.total_contatos || 0"></div>
+                        <div class="text-[10px] text-gray-500">Contatos</div>
+                    </div>
+                    <div>
+                        <div class="text-lg font-bold text-accent-500" x-text="cidade.apoiadores || 0"></div>
+                        <div class="text-[10px] text-gray-500">Apoiadores</div>
+                    </div>
+                    <div>
+                        <div class="text-lg font-bold text-yellow-600" x-text="cidade.liderancas || 0"></div>
+                        <div class="text-[10px] text-gray-500">Lideranças</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="grid grid-cols-2 gap-3">
+                <a :href="'/campo/contato/?city=' + cidade.id" class="bg-primary-600 text-white rounded-xl p-3 text-center text-sm font-semibold active:bg-primary-700">
+                    + Novo Contato
+                </a>
+                <a :href="'/campo/interacao/?city=' + cidade.id" class="bg-green-600 text-white rounded-xl p-3 text-center text-sm font-semibold active:bg-green-700">
+                    + Interação
+                </a>
+            </div>
+        </div>
+    </template>
+
+    <!-- Estado vazio -->
+    <div x-show="!cidade && !busca" class="text-center text-gray-400 py-12">
+        <svg class="w-16 h-16 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <p class="text-sm">Busque uma cidade para ver o termômetro</p>
+    </div>
+</div>
+{% endblock %}

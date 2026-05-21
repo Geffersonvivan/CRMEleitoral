@@ -1,0 +1,112 @@
+{% extends 'pwa/base_mobile.html' %}
+{% block title %}Novo Contato{% endblock %}
+{% block nav_contato %}text-primary-700 font-semibold{% endblock %}
+
+{% block header_left %}
+<a href="/campo/" class="p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+<span class="text-lg font-bold">Novo Contato</span>
+{% endblock %}
+
+{% block content %}
+<div x-data="campoContato()" x-init="init()">
+    <form @submit.prevent="salvar()" class="space-y-4">
+
+        <!-- Foto -->
+        <div class="flex justify-center">
+            <div class="relative" @click="$refs.fotoInput.click()">
+                <div class="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                    <img x-show="fotoPreview" :src="fotoPreview" class="w-full h-full object-cover">
+                    <svg x-show="!fotoPreview" class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </div>
+                <div class="absolute bottom-0 right-0 bg-primary-600 rounded-full p-1.5">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                </div>
+                <input type="file" x-ref="fotoInput" accept="image/*" capture="environment" class="hidden" @change="onFoto($event)">
+            </div>
+        </div>
+
+        <!-- Nome -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nome completo *</label>
+            <input type="text" x-model="form.full_name" required autocomplete="off"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        </div>
+
+        <!-- Telefone / WhatsApp -->
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <input type="tel" x-model="form.phone" autocomplete="off"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-3">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">WhatsApp</label>
+                <input type="tel" x-model="form.whatsapp" autocomplete="off"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-3">
+            </div>
+        </div>
+
+        <!-- Categoria -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+            <select x-model="form.category" class="w-full border border-gray-300 rounded-lg px-3 py-3 bg-white">
+                <option value="eleitor">Eleitor</option>
+                <option value="apoiador">Apoiador</option>
+                <option value="indeciso">Indeciso</option>
+                <option value="lideranca">Liderança</option>
+                <option value="coordenador_municipal">Coordenador Municipal</option>
+                <option value="coordenador_bairro">Coordenador de Bairro</option>
+            </select>
+        </div>
+
+        <!-- Cidade -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+            <select x-model="form.city" class="w-full border border-gray-300 rounded-lg px-3 py-3 bg-white">
+                <option value="">— Selecionar —</option>
+                <template x-for="c in cidades" :key="c.id">
+                    <option :value="c.id" x-text="c.name"></option>
+                </template>
+            </select>
+            <button type="button" @click="usarGPS()" class="mt-1 text-xs text-primary-600 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                <span>Detectar por GPS</span>
+            </button>
+        </div>
+
+        <!-- Notas -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+            <textarea x-model="form.notes" rows="2"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-3"
+                      placeholder="Ex: Indicado pelo João, mora na rua principal"></textarea>
+        </div>
+
+        <!-- Promessa de voto -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Vai votar no LS?</label>
+            <div class="grid grid-cols-3 gap-2">
+                <button type="button" @click="form.engagement_level = 4"
+                        :class="form.engagement_level === 4 ? 'bg-green-600 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="py-2.5 rounded-lg text-sm font-medium transition-colors">Sim</button>
+                <button type="button" @click="form.engagement_level = 2"
+                        :class="form.engagement_level === 2 ? 'bg-yellow-500 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="py-2.5 rounded-lg text-sm font-medium transition-colors">Talvez</button>
+                <button type="button" @click="form.engagement_level = 1"
+                        :class="form.engagement_level === 1 ? 'bg-red-500 text-white' : 'bg-white text-gray-700 border border-gray-300'"
+                        class="py-2.5 rounded-lg text-sm font-medium transition-colors">Não</button>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" :disabled="salvando"
+                class="w-full bg-primary-700 text-white py-3.5 rounded-lg font-semibold text-base active:bg-primary-800 disabled:opacity-50">
+            <span x-show="!salvando">Salvar Contato</span>
+            <span x-show="salvando">Salvando...</span>
+        </button>
+    </form>
+</div>
+{% endblock %}

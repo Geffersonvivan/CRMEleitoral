@@ -1,0 +1,67 @@
+{% extends 'pwa/base_mobile.html' %}
+{% block title %}Check-in{% endblock %}
+{% block nav_checkin %}text-primary-700 font-semibold{% endblock %}
+
+{% block header_left %}
+<a href="/campo/" class="p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+<span class="text-lg font-bold">Check-in Evento</span>
+{% endblock %}
+
+{% block content %}
+<div x-data="campoCheckin()" x-init="load()">
+
+    <!-- Localização -->
+    <div class="bg-white rounded-xl p-4 shadow-sm mb-4">
+        <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+            <span class="text-sm font-medium text-gray-700">Sua localização</span>
+        </div>
+        <div x-show="!location" class="text-sm text-gray-400">Obtendo GPS...</div>
+        <div x-show="location" class="text-sm text-gray-600">
+            <span x-text="location ? location.lat.toFixed(4) + ', ' + location.lng.toFixed(4) : ''"></span>
+        </div>
+    </div>
+
+    <!-- Eventos de hoje/próximos -->
+    <h3 class="text-sm font-semibold text-gray-700 mb-2">Eventos disponíveis</h3>
+
+    <div x-show="loading" class="text-center text-gray-400 py-8">Carregando eventos...</div>
+
+    <div x-show="!loading && eventos.length === 0" class="text-center text-gray-400 py-8">
+        <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        Nenhum evento próximo
+    </div>
+
+    <div class="space-y-3">
+        <template x-for="ev in eventos" :key="ev.id">
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <div class="font-semibold text-sm" x-text="ev.title"></div>
+                        <div class="text-xs text-gray-500 mt-0.5">
+                            <span x-text="ev.event_type_display"></span>
+                            <span x-show="ev.city_name"> · <span x-text="ev.city_name"></span></span>
+                        </div>
+                        <div class="text-xs text-primary-600 mt-0.5" x-text="formatDateTime(ev.date)"></div>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded-full"
+                          :class="ev.checked_in ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                          x-text="ev.checked_in ? 'Presente' : (ev.expected_attendees || 0) + ' esperados'"></span>
+                </div>
+
+                <!-- Botão de check-in -->
+                <button x-show="!ev.checked_in" @click="checkin(ev)"
+                        :disabled="checkingIn"
+                        class="w-full bg-accent-500 text-white py-2.5 rounded-lg text-sm font-semibold active:bg-accent-600 disabled:opacity-50">
+                    <span x-show="!checkingIn">Fazer Check-in</span>
+                    <span x-show="checkingIn">Registrando...</span>
+                </button>
+
+                <div x-show="ev.checked_in" class="text-center text-green-600 text-sm font-medium py-2">
+                    ✓ Check-in realizado
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+{% endblock %}
