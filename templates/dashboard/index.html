@@ -10,71 +10,71 @@
 {% block content %}
 <div x-data="dashboardApp()" x-init="init()">
     <!-- Mapa de SC -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-4">
-        <div class="flex items-center justify-between mb-2">
+    <div class="bg-white rounded-xl shadow-md p-3 lg:p-4 mb-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between mb-2 gap-2">
             <div>
-                <h2 class="text-xl font-bold text-gray-800" title="Mapa interativo de SC com 21 regiões e ~295 cidades. Clique numa região para ver detalhes">Mapa Político de Articulação</h2>
+                <h2 class="text-lg lg:text-xl font-bold text-gray-800" title="Mapa interativo de SC com 21 regiões e ~295 cidades. Clique numa região para ver detalhes">Mapa Político de Articulação</h2>
                 <p class="text-sm text-gray-500" x-text="currentLevel === 'state' ? 'Santa Catarina' : regionName"></p>
             </div>
-            <div class="flex items-center gap-2">
-                <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+            <div class="flex items-center gap-2 w-full lg:w-auto mt-2 lg:mt-0">
+                <div class="inline-flex rounded-lg border border-gray-300 overflow-x-auto text-sm max-w-full">
                     <button @click="setMapMode('eleicoes_2022')"
                             :class="mapMode === 'eleicoes_2022' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Resultados eleitorais 2022: posição do LS por cidade (dep. federal) e votos por zona eleitoral">
                         Eleições 2022
                     </button>
                     <button @click="setMapMode('regioes')"
                             :class="mapMode === 'regioes' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Visualiza as 21 associações de municípios coloridas por macro região">
                         Regiões
                     </button>
                     <button @click="setMapMode('calor')"
                             :class="mapMode === 'calor' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Penetração de votos LS 2022 sobre eleitores: vermelho (baixa) a verde (alta)">
                         Mapa de Calor
                     </button>
                     <button @click="setMapMode('demandas')"
                             :class="mapMode === 'demandas' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Status das demandas por região: verde (em dia), amarelo (próximo do prazo), vermelho (atrasada)">
                         Demandas
                     </button>
                     <button @click="setMapMode('roteiros')"
                             :class="mapMode === 'roteiros' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Roteiros de viagem planejados e realizados sobre o mapa">
                         Roteiros
                     </button>
                     <button @click="setMapMode('estrategico')"
                             :class="mapMode === 'estrategico' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Análise estratégica: classifica cidades como Base Forte, Aliado Fraco, Potencial Oculto ou Território Hostil">
                         Estratégico
                     </button>
                     <button @click="setMapMode('rede_pl')"
                             :class="mapMode === 'rede_pl' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Força da rede PL: mede presença de coordenadores, vereadores, diretório e contatos do PL em cada cidade">
                         Rede PL
                     </button>
                     <button @click="setMapMode('zonas')"
                             :class="mapMode === 'zonas' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Ranking das 99 zonas eleitorais de SC por desempenho do LS em 2022 (Dep. Federal)">
                         Zonas Eleitorais
                     </button>
                     <button @click="setMapMode('transferencia')"
                             :class="mapMode === 'transferencia' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Transferência de votos: setas mostram oportunidades de expansão de cidades fortes para vizinhas com baixa penetração">
                         Transferência
                     </button>
                     <button @click="setMapMode('deputados')"
                             :class="mapMode === 'deputados' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                            class="px-3 py-1.5 font-medium transition-colors"
+                            class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap"
                             title="Deputados estaduais PL aliados: onde cada deputado é forte e pode ser ponte para o LS">
                         Dep. Aliados
                     </button>
@@ -87,7 +87,7 @@
                 </button>
             </div>
         </div>
-        <div id="map-container" class="h-[500px] md:h-[600px] rounded-lg border border-gray-200 bg-slate-50"></div>
+        <div id="map-container" class="h-[350px] md:h-[500px] lg:h-[600px] rounded-lg border border-gray-200 bg-slate-50 overflow-hidden"></div>
     </div>
 
     <!-- Legenda Macro Regiões -->
@@ -105,7 +105,7 @@
 
     <!-- Legenda Mapa de Calor -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'calor'">
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
             <span class="text-sm font-semibold text-gray-700">Penetração LS 2022</span>
             <div class="flex items-center gap-1">
                 <span class="text-xs text-gray-500">0%</span>
@@ -118,7 +118,7 @@
 
     <!-- Legenda Demandas -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'demandas'">
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-3 lg:gap-6 flex-wrap">
             <span class="text-sm font-semibold text-gray-700">Status das Demandas</span>
             <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-green-500 inline-block"></span><span class="text-xs text-gray-600">Em dia</span></div>
             <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm bg-yellow-500 inline-block"></span><span class="text-xs text-gray-600">Próximo do prazo</span></div>
@@ -130,7 +130,7 @@
 
     <!-- Legenda Roteiros -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'roteiros'">
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-3 lg:gap-6 flex-wrap">
             <span class="text-sm font-semibold text-gray-700">Roteiros</span>
             <div class="flex items-center gap-1.5">
                 <svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4,2"/></svg>
@@ -154,7 +154,7 @@
 
     <!-- Legenda Estratégico -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-4" x-show="mapMode === 'estrategico'">
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-3 lg:gap-6 flex-wrap">
             <span class="text-sm font-semibold text-gray-700">Análise Estratégica</span>
             <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#15803d"></span><span class="text-xs text-gray-600">Base Forte</span></div>
             <div class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-sm inline-block" style="background:#86efac"></span><span class="text-xs text-gray-600">Aliado Fraco</span></div>
@@ -190,7 +190,7 @@
     </div>
 
     <!-- Cards Resumo Transferência - Classificação Cruzada -->
-    <div class="grid grid-cols-6 gap-2 mb-4" x-show="mapMode === 'transferencia' && transferData">
+    <div class="grid grid-cols-3 lg:grid-cols-6 gap-2 mb-4" x-show="mapMode === 'transferencia' && transferData">
         <template x-for="cls in ['zona_ouro', 'polo_ls', 'buscar_ambos', 'buscar_jorginho', 'buscar_carol', 'baixa_prioridade']" :key="cls">
             <div class="bg-white rounded-xl shadow-md p-3 cursor-pointer border-2 transition-colors"
                  :class="transferFilter === cls ? 'border-gray-800' : 'border-transparent hover:border-gray-200'"
@@ -344,7 +344,7 @@
     </div>
 
     <!-- Cards Resumo Deputados -->
-    <div class="grid grid-cols-5 gap-2 mb-4" x-show="mapMode === 'deputados' && deputiesData">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4" x-show="mapMode === 'deputados' && deputiesData">
         <template x-for="cls in ['ponte_forte', 'base_conjunta', 'territorio_dep', 'territorio_ls', 'sem_presenca']" :key="cls">
             <div class="bg-white rounded-xl shadow-md p-3 cursor-pointer border-2 transition-colors"
                  :class="deputiesFilter === cls ? 'border-gray-800' : 'border-transparent hover:border-gray-200'"
@@ -860,7 +860,7 @@
     </div>
 
     <!-- Cards performance Eleições 2022 -->
-    <div class="grid grid-cols-5 gap-2 mb-4" x-show="mapMode === 'eleicoes_2022' && elections2022Data">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-4" x-show="mapMode === 'eleicoes_2022' && elections2022Data">
         <template x-for="perf in ['primeiro', 'top3', 'top5', 'top10', 'abaixo']" :key="perf">
             <div class="rounded-xl shadow-md p-4 cursor-pointer transition-all"
                  :class="elections2022Filter === perf ? 'ring-2 ring-primary-500' : ''"
