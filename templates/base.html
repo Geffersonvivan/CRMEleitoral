@@ -40,7 +40,7 @@
 </head>
 <body class="bg-gray-50 min-h-screen" x-data="{ sidebarOpen: false, showMobileBanner: false }" x-init="showMobileBanner = window.innerWidth < 768 && !sessionStorage.getItem('dismissMobile')">
     <!-- Banner mobile: opções de navegação -->
-    <div x-show="showMobileBanner" x-transition
+    <div x-cloak x-show="showMobileBanner" x-transition
          class="fixed inset-x-0 top-0 z-[60] bg-primary-900 text-white px-4 py-3 shadow-lg">
         <div class="flex items-center justify-between gap-2 mb-2">
             <div class="text-sm font-semibold">Você está no celular</div>
