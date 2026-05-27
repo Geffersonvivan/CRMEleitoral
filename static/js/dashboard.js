@@ -6,6 +6,7 @@ function dashboardApp() {
         regionName: '',
         scMap: null,
         mapMode: 'eleicoes_2022',
+        showMapHelp: false,
         showCompletedRoutes: false,
 
         async init() {
