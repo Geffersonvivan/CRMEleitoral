@@ -195,11 +195,9 @@ class SCMap {
         }
 
         this.zoom = d3.zoom()
-            .scaleExtent([1, 8])
-            .on('zoom', (event) => {
-                this.g.attr('transform', event.transform);
-            });
-        this.svg.call(this.zoom);
+            .scaleExtent([1, 1])
+            .on('zoom', () => {});
+        this.svg.on('.zoom', null);
 
         return this;
     }

@@ -94,6 +94,7 @@ class Neighborhood(TimeStampedModel):
         related_name='coordinated_neighborhoods'
     )
     meta_votes = models.IntegerField('Meta de votos', default=0)
+    meta_doacoes = models.DecimalField('Meta de doações (R$)', max_digits=12, decimal_places=2, default=0)
 
     class Meta:
         verbose_name = 'Bairro'

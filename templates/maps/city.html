@@ -501,6 +501,54 @@
         </template>
     </div>
 
+    <!-- Tabela: Bairros - Doações -->
+    <div x-show="mapIs('doacoes') && doacoesData" x-cloak class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <h3 class="text-lg font-semibold mb-4">Bairros - Doações</h3>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full">
+                <thead>
+                    <tr>
+                        <th class="text-left">Bairro</th>
+                        <th class="text-right" title="População estimada do bairro">População</th>
+                        <th class="text-right" title="Coordenadores ativos no bairro">Coordenadores</th>
+                        <th class="text-right" title="Apoiadores ativos no bairro">Apoiadores</th>
+                        <th class="text-right" title="Meta de arrecadação do bairro">Meta (R$)</th>
+                        <th class="text-right" title="Total arrecadado no bairro">Arrecadado (R$)</th>
+                        <th class="text-right" title="Percentual da meta alcançada">% Meta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="b in doacoesData.neighborhoods_table || []" :key="b.slug">
+                        <tr>
+                            <td class="text-left font-medium" x-text="b.name"></td>
+                            <td class="text-right tabular-nums" x-text="(b.population || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="b.coordenadores || 0"></td>
+                            <td class="text-right tabular-nums" x-text="b.apoiadores || 0"></td>
+                            <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(b.meta || 0)"></td>
+                            <td class="text-right tabular-nums font-semibold" :class="b.arrecadado > 0 ? 'text-blue-900' : 'text-gray-400'" x-text="'R$ ' + fmt.currency(b.arrecadado || 0)"></td>
+                            <td class="text-right tabular-nums">
+                                <span :class="b.pct_meta >= 100 ? 'text-green-600 font-bold' : b.pct_meta >= 50 ? 'text-blue-600' : 'text-gray-500'" x-text="b.pct_meta + '%'"></span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+                <tfoot>
+                    <tr class="font-bold bg-gray-50 border-t-2 border-gray-300">
+                        <td class="text-left">Total</td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData.neighborhoods_table) || []).reduce((s, b) => s + (b.population || 0), 0).toLocaleString('pt-BR')"></td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData.neighborhoods_table) || []).reduce((s, b) => s + (b.coordenadores || 0), 0)"></td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData.neighborhoods_table) || []).reduce((s, b) => s + (b.apoiadores || 0), 0)"></td>
+                        <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(((doacoesData.neighborhoods_table) || []).reduce((s, b) => s + (b.meta || 0), 0))"></td>
+                        <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(((doacoesData.neighborhoods_table) || []).reduce((s, b) => s + (b.arrecadado || 0), 0))"></td>
+                        <td class="text-right tabular-nums">
+                            <span x-text="(() => { const t = (doacoesData.neighborhoods_table) || []; const m = t.reduce((s,b) => s + (b.meta||0), 0); const a = t.reduce((s,b) => s + (b.arrecadado||0), 0); return m > 0 ? (a/m*100).toFixed(1) + '%' : '0%'; })()"></span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
     <!-- Categorias -->
     <div class="bg-white rounded-xl shadow-md p-4" x-show="!mapIs('eleicoes_2022')">
         <h3 class="text-lg font-semibold mb-4" title="Distribuição dos contatos cadastrados por tipo: coordenadores, apoiadores, eleitores, etc.">Contatos por Categoria</h3>

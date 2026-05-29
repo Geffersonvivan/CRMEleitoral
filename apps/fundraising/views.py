@@ -427,6 +427,48 @@ def doacoes_city_detail(request, slug):
     for c in captadores:
         c['total'] = float(c['total'] or 0)
 
+    # Doações por bairro
+    from apps.geography.models import Neighborhood
+    bairros_doacoes = {}
+    bairros_qs = (
+        paid_qs
+        .values(bairro_slug=models_F('captador__contact__neighborhood__slug'))
+        .annotate(total=Sum('amount'))
+        .filter(bairro_slug__isnull=False)
+    )
+    for b in bairros_qs:
+        bairros_doacoes[b['bairro_slug']] = float(b['total'] or 0)
+
+    # Captadores por bairro
+    cap_bairro = {}
+    cap_bairro_qs = (
+        Captador.objects.filter(is_active=True, contact__city=city)
+        .values('contact__neighborhood__slug')
+        .annotate(
+            coordenadores=Count('id', filter=Q(tipo='coordenador')),
+            apoiadores=Count('id', filter=Q(tipo='apoiador')),
+        )
+    )
+    for cb in cap_bairro_qs:
+        cap_bairro[cb['contact__neighborhood__slug']] = cb
+
+    # Tabela de bairros
+    neighborhoods_table = []
+    for nb in city.neighborhoods.order_by('name'):
+        bd = bairros_doacoes.get(nb.slug, 0)
+        cp = cap_bairro.get(nb.slug, {})
+        meta = float(nb.meta_doacoes or 0)
+        neighborhoods_table.append({
+            'slug': nb.slug,
+            'name': nb.name,
+            'population': nb.population or 0,
+            'coordenadores': cp.get('coordenadores', 0),
+            'apoiadores': cp.get('apoiadores', 0),
+            'meta': meta,
+            'arrecadado': bd,
+            'pct_meta': round(bd / meta * 100, 1) if meta > 0 else 0,
+        })
+
     return Response({
         'city': {'slug': city.slug, 'name': city.name},
         'totals': {
@@ -435,6 +477,7 @@ def doacoes_city_detail(request, slug):
             'doadores': totals['doadores'],
         },
         'captadores': captadores,
+        'neighborhoods_table': neighborhoods_table,
     })
 
 

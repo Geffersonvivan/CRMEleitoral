@@ -41,7 +41,7 @@ class RegionAdmin(admin.ModelAdmin):
 class NeighborhoodInline(admin.TabularInline):
     model = Neighborhood
     extra = 0
-    fields = ('name', 'population', 'meta_votes')
+    fields = ('name', 'population', 'meta_votes', 'meta_doacoes')
 
 
 @admin.register(City)

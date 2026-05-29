@@ -6,12 +6,14 @@ function cityApp(slug) {
         s: {},
         mapaParam: new URLSearchParams(window.location.search).get('mapa') || '',
 
+        doacoesData: null,
+
         mapaLabel() {
             const map = {
                 regioes: 'Mapa Regiões', calor: 'Mapa Calor', demandas: 'Mapa Demandas',
                 roteiros: 'Mapa Roteiros', estrategico: 'Mapa Estratégico', rede_pl: 'Mapa Rede PL',
                 zonas: 'Mapa Zonas', transferencia: 'Mapa Transferência', deputados: 'Mapa Dep. Aliados',
-                eleicoes_2022: 'Mapa Eleições 2022',
+                eleicoes_2022: 'Mapa Eleições 2022', doacoes: 'Mapa Doações',
             };
             return map[this.mapaParam] || '';
         },
@@ -24,6 +26,9 @@ function cityApp(slug) {
             try {
                 this.data = await API.dashboard.city(this.slug);
                 this.s = this.data.strategic || {};
+                if (this.mapIs('doacoes')) {
+                    this.doacoesData = await API.fundraising.cityDetail(this.slug);
+                }
             } catch (e) {
                 console.error('City API erro:', e);
                 this.data = { city: { name: this.slug } };

@@ -215,9 +215,7 @@ function regionApp(slug) {
             tip.className = 'map-tooltip';
             document.body.appendChild(tip);
 
-            svg.call(d3.zoom().scaleExtent([1, 6]).on('zoom', (event) => {
-                g.attr('transform', event.transform);
-            }));
+            svg.on('.zoom', null);
 
             const self = this;
 
