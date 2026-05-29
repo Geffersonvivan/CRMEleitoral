@@ -1302,7 +1302,7 @@
     </div>
 
     <!-- Tabela Regiões -->
-    <div class="bg-white rounded-xl shadow-md p-4" x-show="currentLevel === 'state' && mapMode !== 'estrategico' && mapMode !== 'rede_pl' && mapMode !== 'zonas' && mapMode !== 'transferencia' && mapMode !== 'deputados' && mapMode !== 'eleicoes_2022'">
+    <div class="bg-white rounded-xl shadow-md p-4" x-show="currentLevel === 'state' && mapMode !== 'estrategico' && mapMode !== 'rede_pl' && mapMode !== 'zonas' && mapMode !== 'transferencia' && mapMode !== 'deputados' && mapMode !== 'eleicoes_2022' && mapMode !== 'doacoes'">
         <h3 class="text-sm font-semibold mb-3">Regiões (21 Associações de Municípios)</h3>
         <div class="overflow-x-auto">
             <table class="data-table w-full">
@@ -1338,6 +1338,59 @@
                         <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.population || 0), 0).toLocaleString('pt-BR')"></td>
                         <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.total_contacts || 0), 0).toLocaleString('pt-BR')"></td>
                         <td class="text-right tabular-nums" x-text="(data.regions || []).reduce((s, r) => s + (r.meta_votes || 0), 0).toLocaleString('pt-BR')"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tabela Regiões - Doações -->
+    <div class="bg-white rounded-xl shadow-md p-4" x-show="currentLevel === 'state' && mapMode === 'doacoes'" x-cloak>
+        <h3 class="text-sm font-semibold mb-3">Regiões - Doações (21 Associações de Municípios)</h3>
+        <div class="overflow-x-auto">
+            <table class="data-table w-full">
+                <thead>
+                    <tr>
+                        <th class="text-left" title="Nome da associação de municípios">Região</th>
+                        <th class="text-left" title="Agrupamento geográfico">Macro Região</th>
+                        <th class="text-right" title="População estimada da região">População</th>
+                        <th class="text-right" title="Coordenadores ativos na região">Coordenadores</th>
+                        <th class="text-right" title="Apoiadores ativos na região">Apoiadores</th>
+                        <th class="text-right" title="Meta de arrecadação da região">Meta (R$)</th>
+                        <th class="text-right" title="Total arrecadado na região">Arrecadado (R$)</th>
+                        <th class="text-right" title="Percentual da meta alcançada">% Meta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="r in (doacoesData && doacoesData.regions_table) || []" :key="r.slug">
+                        <tr class="clickable" @click="zoomToRegion(r.slug)">
+                            <td class="text-left">
+                                <span class="inline-block w-3 h-3 rounded-full mr-2" :style="'background:' + r.color"></span>
+                                <span x-text="r.name" class="font-semibold"></span>
+                            </td>
+                            <td x-text="r.macro_region" class="text-left text-gray-500 text-xs"></td>
+                            <td class="text-right tabular-nums" x-text="(r.population || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="r.coordenadores || 0"></td>
+                            <td class="text-right tabular-nums" x-text="r.apoiadores || 0"></td>
+                            <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(r.meta || 0)"></td>
+                            <td class="text-right tabular-nums font-semibold" :class="r.arrecadado > 0 ? 'text-blue-900' : 'text-gray-400'" x-text="'R$ ' + fmt.currency(r.arrecadado || 0)"></td>
+                            <td class="text-right tabular-nums">
+                                <span :class="r.pct_meta >= 100 ? 'text-green-600 font-bold' : r.pct_meta >= 50 ? 'text-blue-600' : 'text-gray-500'" x-text="r.pct_meta + '%'"></span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+                <tfoot>
+                    <tr class="font-bold bg-gray-50 border-t-2 border-gray-300">
+                        <td class="text-left" colspan="2">Total</td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData && doacoesData.regions_table) || []).reduce((s, r) => s + (r.population || 0), 0).toLocaleString('pt-BR')"></td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData && doacoesData.regions_table) || []).reduce((s, r) => s + (r.coordenadores || 0), 0)"></td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData && doacoesData.regions_table) || []).reduce((s, r) => s + (r.apoiadores || 0), 0)"></td>
+                        <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(((doacoesData && doacoesData.regions_table) || []).reduce((s, r) => s + (r.meta || 0), 0))"></td>
+                        <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(((doacoesData && doacoesData.regions_table) || []).reduce((s, r) => s + (r.arrecadado || 0), 0))"></td>
+                        <td class="text-right tabular-nums">
+                            <span x-text="(() => { const t = ((doacoesData && doacoesData.regions_table) || []); const m = t.reduce((s,r) => s + (r.meta||0), 0); const a = t.reduce((s,r) => s + (r.arrecadado||0), 0); return m > 0 ? (a/m*100).toFixed(1) + '%' : '0%'; })()"></span>
+                        </td>
                     </tr>
                 </tfoot>
             </table>

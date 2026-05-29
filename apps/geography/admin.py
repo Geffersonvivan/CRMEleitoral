@@ -6,7 +6,7 @@ from .models import MacroRegion, Region, City, Neighborhood, ElectoralZone
 class RegionInline(admin.TabularInline):
     model = Region
     extra = 0
-    fields = ('name', 'full_name', 'population', 'meta_votes')
+    fields = ('name', 'full_name', 'population', 'meta_votes', 'meta_doacoes')
 
 
 @admin.register(MacroRegion)
@@ -24,7 +24,7 @@ class CityInline(admin.TabularInline):
 
 @admin.register(Region)
 class RegionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'full_name', 'macro_region', 'population', 'meta_votes', 'cities_count')
+    list_display = ('name', 'full_name', 'macro_region', 'population', 'meta_votes', 'meta_doacoes', 'cities_count')
     list_filter = ('macro_region',)
     prepopulated_fields = {'slug': ('name',)}
     search_fields = ('name', 'full_name')

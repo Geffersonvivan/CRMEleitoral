@@ -35,6 +35,7 @@ class Region(TimeStampedModel):
         related_name='coordinated_regions'
     )
     meta_votes = models.IntegerField('Meta de votos', default=0)
+    meta_doacoes = models.DecimalField('Meta de doações (R$)', max_digits=12, decimal_places=2, default=0)
     color = models.CharField('Cor', max_length=7, default='#3388ff')
 
     class Meta:

@@ -206,9 +206,43 @@ def doacoes_map_data(request):
         captadores=Count('captador', distinct=True),
     )
 
+    # Tabela de regiões com captadores e meta de doações
+    all_regions = Region.objects.select_related('macro_region').order_by('name')
+    captador_counts = (
+        Captador.objects.filter(is_active=True)
+        .values('contact__region__slug')
+        .annotate(
+            coordenadores=Count('id', filter=Q(tipo='coordenador')),
+            apoiadores=Count('id', filter=Q(tipo='apoiador')),
+        )
+    )
+    captador_map = {
+        c['contact__region__slug']: c for c in captador_counts
+    }
+
+    regions_table = []
+    for reg in all_regions:
+        rd = regions.get(reg.slug, {})
+        cc = captador_map.get(reg.slug, {})
+        meta = float(reg.meta_doacoes or 0)
+        arrecadado = rd.get('total', 0)
+        regions_table.append({
+            'slug': reg.slug,
+            'name': reg.name,
+            'macro_region': reg.macro_region.name if reg.macro_region else '',
+            'population': reg.population or 0,
+            'coordenadores': cc.get('coordenadores', 0),
+            'apoiadores': cc.get('apoiadores', 0),
+            'meta': meta,
+            'arrecadado': arrecadado,
+            'pct_meta': round(arrecadado / meta * 100, 1) if meta > 0 else 0,
+            'color': reg.color,
+        })
+
     return Response({
         'regions': regions,
         'cities': cities,
+        'regions_table': regions_table,
         'totals': {
             'total': float(totals['total'] or 0),
             'count': totals['count'],
