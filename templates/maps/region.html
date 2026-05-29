@@ -327,31 +327,50 @@
         </div>
     </div>
 
-    <!-- Tabela: Cidades com Doações -->
-    <div x-show="mapIs('doacoes') && doacoesData && (doacoesData.cidades || []).length > 0" class="bg-white rounded-xl shadow-md p-4 mb-6">
-        <h3 class="text-lg font-semibold mb-4">Doações por Cidade</h3>
+    <!-- Tabela: Cidades - Doações -->
+    <div x-show="mapIs('doacoes') && doacoesData" class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <h3 class="text-lg font-semibold mb-4">Cidades - Doações</h3>
         <div class="overflow-x-auto">
-            <table class="data-table">
+            <table class="data-table w-full">
                 <thead>
                     <tr>
-                        <th>Cidade</th>
-                        <th class="text-right">Doadores</th>
-                        <th class="text-right">Doações</th>
-                        <th class="text-right">Arrecadado</th>
-                        <th class="text-right">Captadores</th>
+                        <th class="text-left">Cidade</th>
+                        <th class="text-right" title="População estimada da cidade">População</th>
+                        <th class="text-right" title="Coordenadores ativos na cidade">Coordenadores</th>
+                        <th class="text-right" title="Apoiadores ativos na cidade">Apoiadores</th>
+                        <th class="text-right" title="Meta de arrecadação da cidade">Meta (R$)</th>
+                        <th class="text-right" title="Total arrecadado na cidade">Arrecadado (R$)</th>
+                        <th class="text-right" title="Percentual da meta alcançada">% Meta</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-for="c in doacoesData.cidades || []" :key="c.cidade_slug">
-                        <tr class="clickable" @click="window.location.href='/cidade/' + c.cidade_slug + '/?mapa=doacoes'">
-                            <td class="font-medium" x-text="c.cidade_nome"></td>
-                            <td class="text-right" x-text="c.doadores"></td>
-                            <td class="text-right" x-text="c.count"></td>
-                            <td class="text-right font-semibold text-blue-900" x-text="'R$ ' + fmt.currency(c.total)"></td>
-                            <td class="text-right" x-text="c.captadores"></td>
+                    <template x-for="c in doacoesData.cities_table || []" :key="c.slug">
+                        <tr class="clickable" @click="window.location.href='/cidade/' + c.slug + '/?mapa=doacoes'">
+                            <td class="text-left font-medium" x-text="c.name"></td>
+                            <td class="text-right tabular-nums" x-text="(c.population || 0).toLocaleString('pt-BR')"></td>
+                            <td class="text-right tabular-nums" x-text="c.coordenadores || 0"></td>
+                            <td class="text-right tabular-nums" x-text="c.apoiadores || 0"></td>
+                            <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(c.meta || 0)"></td>
+                            <td class="text-right tabular-nums font-semibold" :class="c.arrecadado > 0 ? 'text-blue-900' : 'text-gray-400'" x-text="'R$ ' + fmt.currency(c.arrecadado || 0)"></td>
+                            <td class="text-right tabular-nums">
+                                <span :class="c.pct_meta >= 100 ? 'text-green-600 font-bold' : c.pct_meta >= 50 ? 'text-blue-600' : 'text-gray-500'" x-text="c.pct_meta + '%'"></span>
+                            </td>
                         </tr>
                     </template>
                 </tbody>
+                <tfoot>
+                    <tr class="font-bold bg-gray-50 border-t-2 border-gray-300">
+                        <td class="text-left">Total</td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData.cities_table) || []).reduce((s, c) => s + (c.population || 0), 0).toLocaleString('pt-BR')"></td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData.cities_table) || []).reduce((s, c) => s + (c.coordenadores || 0), 0)"></td>
+                        <td class="text-right tabular-nums" x-text="((doacoesData.cities_table) || []).reduce((s, c) => s + (c.apoiadores || 0), 0)"></td>
+                        <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(((doacoesData.cities_table) || []).reduce((s, c) => s + (c.meta || 0), 0))"></td>
+                        <td class="text-right tabular-nums" x-text="'R$ ' + fmt.currency(((doacoesData.cities_table) || []).reduce((s, c) => s + (c.arrecadado || 0), 0))"></td>
+                        <td class="text-right tabular-nums">
+                            <span x-text="(() => { const t = (doacoesData.cities_table) || []; const m = t.reduce((s,c) => s + (c.meta||0), 0); const a = t.reduce((s,c) => s + (c.arrecadado||0), 0); return m > 0 ? (a/m*100).toFixed(1) + '%' : '0%'; })()"></span>
+                        </td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>

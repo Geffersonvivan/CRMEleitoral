@@ -48,7 +48,7 @@ class NeighborhoodInline(admin.TabularInline):
 class CityAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'region', 'population', 'mayor_name', 'mayor_party',
-        'num_vereadores', 'num_vereadores_pl', 'votes_sorgatto_2022', 'meta_votes'
+        'num_vereadores', 'num_vereadores_pl', 'votes_sorgatto_2022', 'meta_votes', 'meta_doacoes'
     )
     list_filter = ('region', 'region__macro_region', 'mayor_party')
     search_fields = ('name', 'ibge_code', 'mayor_name')

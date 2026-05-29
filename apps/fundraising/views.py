@@ -324,25 +324,58 @@ def doacoes_region_detail(request, slug):
 
     coordenadores.sort(key=lambda x: x['total'], reverse=True)
 
-    # Doações por cidade
-    cidades = list(
+    # Doações por cidade (para mapa)
+    cidades_doacoes = {}
+    cidades_qs = (
         paid_qs
         .values(
             cidade_slug=models_F('captador__contact__city__slug'),
-            cidade_nome=models_F('captador__contact__city__name'),
         )
         .annotate(
             total=Sum('amount'),
             count=Count('id'),
             doadores=Count('donor_cpf', distinct=True),
-            captadores=Count('captador', distinct=True),
         )
         .filter(cidade_slug__isnull=False)
-        .order_by('-total')
     )
+    for c in cidades_qs:
+        cidades_doacoes[c['cidade_slug']] = {
+            'total': float(c['total'] or 0),
+            'count': c['count'],
+            'doadores': c['doadores'],
+        }
 
-    for c in cidades:
-        c['total'] = float(c['total'] or 0)
+    # Captadores por cidade
+    captador_por_cidade = {}
+    cap_city_qs = (
+        Captador.objects.filter(is_active=True, contact__region=region)
+        .values('contact__city__slug')
+        .annotate(
+            coordenadores=Count('id', filter=Q(tipo='coordenador')),
+            apoiadores=Count('id', filter=Q(tipo='apoiador')),
+        )
+    )
+    for cc in cap_city_qs:
+        captador_por_cidade[cc['contact__city__slug']] = cc
+
+    # Tabela de todas as cidades da região
+    from apps.geography.models import City
+    cities_table = []
+    for city in region.cities.order_by('name'):
+        cd = cidades_doacoes.get(city.slug, {})
+        cp = captador_por_cidade.get(city.slug, {})
+        meta = float(city.meta_doacoes or 0)
+        arrecadado = cd.get('total', 0)
+        cities_table.append({
+            'slug': city.slug,
+            'name': city.name,
+            'population': city.population or 0,
+            'coordenadores': cp.get('coordenadores', 0),
+            'apoiadores': cp.get('apoiadores', 0),
+            'meta': meta,
+            'arrecadado': arrecadado,
+            'pct_meta': round(arrecadado / meta * 100, 1) if meta > 0 else 0,
+        })
 
     return Response({
         'region': {'slug': region.slug, 'name': region.name},
@@ -354,7 +387,7 @@ def doacoes_region_detail(request, slug):
             'media': float((totals['total'] or 0) / max(totals['count'], 1)),
         },
         'coordenadores': coordenadores,
-        'cidades': cidades,
+        'cities_table': cities_table,
     })
 
 

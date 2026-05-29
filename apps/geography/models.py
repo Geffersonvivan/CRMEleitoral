@@ -66,6 +66,7 @@ class City(TimeStampedModel):
     economic_matrix = models.TextField('Matriz econômica', blank=True)
     votes_sorgatto_2022 = models.IntegerField('Votos Sorgatto 2022', default=0)
     meta_votes = models.IntegerField('Meta de votos', default=0)
+    meta_doacoes = models.DecimalField('Meta de doações (R$)', max_digits=12, decimal_places=2, default=0)
     electoral_zone = models.CharField('Zona eleitoral', max_length=50, blank=True)
 
     class Meta:
