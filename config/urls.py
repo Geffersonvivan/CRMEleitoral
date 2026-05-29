@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from apps.campaigns.views_frontend import kanban_view, itinerary_list, itinerary_detail, content_list
 from apps.dashboard.urls_campo import campo_pages, campo_api
 from apps.accounts.views_usuarios import usuarios_page
+from apps.fundraising.views_frontend import public_doar_page
 
 urlpatterns = [
     # Admin (apenas para alimentar dados)
@@ -33,6 +34,10 @@ urlpatterns = [
     path('conteudos/', content_list),
     path('eventos/', include('apps.events.urls_frontend')),
     path('eleicoes/', include('apps.elections.urls_frontend')),
+
+    # Doações
+    path('doacoes/', include('apps.fundraising.urls_frontend')),
+    path('doar/<slug:slug>/', public_doar_page, name='public-doar'),
 
     # Gestão de usuários
     path('usuarios/', usuarios_page, name='usuarios'),

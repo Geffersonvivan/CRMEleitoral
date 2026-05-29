@@ -8,6 +8,7 @@ function dashboardApp() {
         mapMode: 'eleicoes_2022',
         showMapHelp: false,
         showCompletedRoutes: false,
+        doacoesData: null,
 
         async init() {
             // Evitar inicializacao dupla
@@ -100,6 +101,10 @@ function dashboardApp() {
                 } else if (mode === 'eleicoes_2022') {
                     this.scMap.setElections2022(true).then(() => {
                         this.elections2022Data = this.scMap._elections2022Data;
+                    });
+                } else if (mode === 'doacoes') {
+                    this.scMap.setDoacoes(true).then(() => {
+                        this.doacoesData = this.scMap._doacoesData;
                     });
                 } else {
                     this.scMap.setHeatmap(false);

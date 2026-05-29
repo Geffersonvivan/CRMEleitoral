@@ -22,6 +22,7 @@ class SCMap {
         this.voteTransferEnabled = false;
         this.neighborDeputiesEnabled = false;
         this.elections2022Enabled = false;
+        this.doacoesEnabled = false;
         this._demandsData = null;
         this._itinerariesData = null;
         this._strategicData = null;
@@ -30,6 +31,9 @@ class SCMap {
         this._voteTransferData = null;
         this._neighborDeputiesData = null;
         this._elections2022Data = null;
+        this._doacoesData = null;
+        this._doacoesMaxRegion = 0;
+        this._doacoesMaxCity = 0;
         this._stateGeojson = null;
         this._regionGeojson = null;
         this._itineraryColors = ['#3b82f6', '#f97316', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b', '#06b6d4', '#ef4444'];
@@ -134,6 +138,14 @@ class SCMap {
     _zonePerformanceLabel(perf) {
         const map = { lider: '1º Lugar', competitivo: 'Top 3', medio: 'Top 5', baixo: '6º+', ausente: 'Sem dados' };
         return map[perf] || perf;
+    }
+
+    _doacoesColor(valor, maxValor) {
+        if (!valor || valor === 0) return '#e2e8f0';
+        return d3.scaleLinear()
+            .domain([0, maxValor * 0.25, maxValor * 0.5, maxValor])
+            .range(['#dbeafe', '#60a5fa', '#2563eb', '#1e3a8a'])
+            .clamp(true)(valor);
     }
 
     _demandColor(status) {
@@ -259,6 +271,7 @@ class SCMap {
             this.voteTransferEnabled = false;
             this.neighborDeputiesEnabled = false;
             this.elections2022Enabled = false;
+            this.doacoesEnabled = false;
         }
         // Limpar overlays
         this.g.selectAll('.itinerary-line').remove();
@@ -838,6 +851,40 @@ class SCMap {
             .text(stop.city_name);
     }
 
+    async setDoacoes(enabled) {
+        this.doacoesEnabled = enabled;
+        if (enabled) {
+            this.heatmapEnabled = false;
+            this.demandsEnabled = false;
+            this.itinerariesEnabled = false;
+            this.strategicEnabled = false;
+            this.plNetworkEnabled = false;
+            this.zoneRankingEnabled = false;
+            this.voteTransferEnabled = false;
+            this.neighborDeputiesEnabled = false;
+            this.elections2022Enabled = false;
+            try {
+                this._doacoesData = await API.fundraising.mapData();
+                // Pré-calcular max para escalas de cor
+                const regionVals = Object.values(this._doacoesData.regions || {}).map(r => r.total);
+                const cityVals = Object.values(this._doacoesData.cities || {}).map(c => c.total);
+                this._doacoesMaxRegion = Math.max(...regionVals, 1);
+                this._doacoesMaxCity = Math.max(...cityVals, 1);
+            } catch (e) {
+                this._doacoesData = null;
+            }
+        }
+        this.g.selectAll('.itinerary-line').remove();
+        this.g.selectAll('.itinerary-marker').remove();
+        this.g.selectAll('.transfer-arrow').remove();
+        this.g.selectAll('.transfer-marker').remove();
+        if (this.currentLevel === 'state' && this._stateGeojson) {
+            this._applyStateColors();
+        } else if (this.currentLevel === 'region' && this._regionGeojson) {
+            this._applyRegionColors();
+        }
+    }
+
     async setDemands(enabled) {
         this.demandsEnabled = enabled;
         if (enabled) {
@@ -849,6 +896,7 @@ class SCMap {
             this.voteTransferEnabled = false;
             this.neighborDeputiesEnabled = false;
             this.elections2022Enabled = false;
+            this.doacoesEnabled = false;
         }
         this.g.selectAll('.itinerary-line').remove();
         this.g.selectAll('.itinerary-marker').remove();
@@ -1079,6 +1127,11 @@ class SCMap {
                     if (avgPos <= 15) return '#f97316';
                     return '#ef4444';
                 }
+                if (self.doacoesEnabled && self._doacoesData) {
+                    const rd = (self._doacoesData.regions || {})[d.properties.slug];
+                    const valor = rd ? rd.total : 0;
+                    return self._doacoesColor(valor, self._doacoesMaxRegion);
+                }
                 if (self.heatmapEnabled) {
                     const pct = self._penetracao(d.properties.total_votes_2022, d.properties.registered_voters);
                     return colorScale(pct);
@@ -1087,7 +1140,7 @@ class SCMap {
                 if (self.itinerariesEnabled) return self._desaturate(baseColor);
                 return baseColor;
             })
-            .attr('fill-opacity', (self.itinerariesEnabled ? 0.45 : (self.voteTransferEnabled) ? 0.5 : (self.heatmapEnabled || self.demandsEnabled || self.strategicEnabled || self.plNetworkEnabled || self.zoneRankingEnabled || self.neighborDeputiesEnabled || self.elections2022Enabled) ? 0.85 : 0.75));
+            .attr('fill-opacity', (self.itinerariesEnabled ? 0.45 : (self.voteTransferEnabled) ? 0.5 : (self.heatmapEnabled || self.demandsEnabled || self.strategicEnabled || self.plNetworkEnabled || self.zoneRankingEnabled || self.neighborDeputiesEnabled || self.elections2022Enabled || self.doacoesEnabled) ? 0.85 : 0.75));
 
         // Cursor: desabilitar pointer no modo eleições
         this.g.selectAll('path.region')
@@ -1132,6 +1185,21 @@ class SCMap {
                     html += `<div class="tooltip-row"><span class="tooltip-label"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${self._deputyClassColor(cls)};margin-right:4px"></span>${self._deputyClassLabel(cls)}</span> <span class="tooltip-value">${n}</span></div>`;
                 }
                 html += `<div class="tooltip-row"><span class="tooltip-label" style="color:#9ca3af">Clique para ver cidades</span></div>`;
+                tipHtmls.set(f.properties.slug, html);
+            } else if (self.doacoesEnabled && self._doacoesData) {
+                const rd = (self._doacoesData.regions || {})[f.properties.slug] || {};
+                let html = `<div class="tooltip-title">${f.properties.name}</div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Arrecadado:</span> <span class="tooltip-value" style="color:#1e3a8a;font-weight:bold">R$ ${fmt.currency(rd.total || 0)}</span></div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Doadores:</span> <span class="tooltip-value">${rd.doadores || 0}</span></div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Captadores:</span> <span class="tooltip-value">${rd.captadores || 0}</span></div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Doações:</span> <span class="tooltip-value">${rd.count || 0}</span></div>`;
+                if (rd.top_captadores && rd.top_captadores.length > 0) {
+                    html += `<div class="tooltip-row" style="margin-top:4px"><span class="tooltip-label" style="font-weight:600">Top captadores:</span></div>`;
+                    for (const c of rd.top_captadores.slice(0, 3)) {
+                        html += `<div class="tooltip-row"><span class="tooltip-label" style="padding-left:8px">${c.nome}</span> <span class="tooltip-value">R$ ${fmt.currency(c.total)}</span></div>`;
+                    }
+                }
+                html += `<div class="tooltip-row"><span class="tooltip-label" style="color:#9ca3af">Clique para ver detalhes</span></div>`;
                 tipHtmls.set(f.properties.slug, html);
             } else if (self.elections2022Enabled && self._elections2022Data) {
                 const cities = self._elections2022Data.cities.filter(c => c.region_slug === f.properties.slug);
@@ -1199,11 +1267,16 @@ class SCMap {
                     const city = self._strategicData.cities.find(c => c.slug === d.properties.slug);
                     return city ? self._strategicColor(city.classification) : '#d1d5db';
                 }
+                if (self.doacoesEnabled && self._doacoesData) {
+                    const cd = (self._doacoesData.cities || {})[d.properties.slug];
+                    const valor = cd ? cd.total : 0;
+                    return self._doacoesColor(valor, self._doacoesMaxCity);
+                }
                 if (!self.heatmapEnabled) return '#80a5dc';
                 const pct = self._penetracao(d.properties.votes_2022, d.properties.registered_voters);
                 return colorScale(pct);
             })
-            .attr('fill-opacity', (this.heatmapEnabled || this.strategicEnabled || this.plNetworkEnabled || this.zoneRankingEnabled || this.voteTransferEnabled || this.neighborDeputiesEnabled) ? 0.85 : 0.7);
+            .attr('fill-opacity', (this.heatmapEnabled || this.strategicEnabled || this.plNetworkEnabled || this.zoneRankingEnabled || this.voteTransferEnabled || this.neighborDeputiesEnabled || this.doacoesEnabled) ? 0.85 : 0.7);
 
         // Atualizar tooltips
         const tipHtmls = new Map();
@@ -1237,6 +1310,13 @@ class SCMap {
                 } else {
                     tipHtmls.set(f.properties.slug, self._cityTipHtml(f.properties));
                 }
+            } else if (self.doacoesEnabled && self._doacoesData) {
+                const cd = (self._doacoesData.cities || {})[f.properties.slug] || {};
+                let html = `<div class="tooltip-title">${f.properties.name}</div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Arrecadado:</span> <span class="tooltip-value" style="color:#1e3a8a;font-weight:bold">R$ ${fmt.currency(cd.total || 0)}</span></div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Doadores:</span> <span class="tooltip-value">${cd.doadores || 0}</span></div>`;
+                html += `<div class="tooltip-row"><span class="tooltip-label">Doações:</span> <span class="tooltip-value">${cd.count || 0}</span></div>`;
+                tipHtmls.set(f.properties.slug, html);
             } else if (self.zoneRankingEnabled) {
                 tipHtmls.set(f.properties.slug, this._zoneCityTipHtml(f.properties));
             } else if (self.plNetworkEnabled) {

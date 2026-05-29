@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rede de Doações{% endblock %}
+
+{% block content %}
+<div x-data="captadoresApp()" x-init="init()">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Rede de Captação</h1>
+            <p class="text-sm text-gray-500">Coordenadores e apoiadores com links de doação</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/doacoes/rede/" class="text-sm bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
+                Visão da Rede
+            </a>
+            <button @click="novo()" class="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
+                + Novo Captador
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-primary-900" x-text="stats.coordenadores || 0"></div>
+            <div class="text-sm text-gray-500">Coordenadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-blue-600" x-text="stats.apoiadores || 0"></div>
+            <div class="text-sm text-gray-500">Apoiadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-green-600" x-text="'R$ ' + fmt.currency(stats.total_arrecadado || 0)"></div>
+            <div class="text-sm text-gray-500">Total Arrecadado</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-orange-600" x-text="stats.total_doadores || 0"></div>
+            <div class="text-sm text-gray-500">Doadores</div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+        <div class="flex flex-col md:flex-row gap-3">
+            <input type="text" x-model="busca" @input.debounce.300ms="load()" placeholder="Buscar por nome, CPF ou código..."
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            <select x-model="filtroTipo" @change="load()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="">Todos os tipos</option>
+                <option value="coordenador">Coordenadores</option>
+                <option value="apoiador">Apoiadores</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="bg-white rounded-xl shadow-md p-4">
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Tipo</th>
+                        <th>Coordenador</th>
+                        <th>Região</th>
+                        <th>Link</th>
+                        <th class="text-right">Doações</th>
+                        <th class="text-right">Arrecadado</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in captadores" :key="c.id">
+                        <tr>
+                            <td class="font-medium" x-text="c.contact_name"></td>
+                            <td>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                      :class="c.tipo === 'coordenador' ? 'bg-primary-100 text-primary-800' : 'bg-blue-100 text-blue-800'"
+                                      x-text="c.tipo === 'coordenador' ? 'Coordenador' : 'Apoiador'"></span>
+                            </td>
+                            <td class="text-gray-500" x-text="c.coordenador_name || '-'"></td>
+                            <td class="text-gray-500" x-text="c.contact_region || '-'"></td>
+                            <td>
+                                <div class="flex items-center gap-1">
+                                    <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" x-text="c.slug"></code>
+                                    <button @click="copiarLink(c)" class="text-primary-600 hover:text-primary-800" title="Copiar link">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    </button>
+                                    <a :href="c.qrcode_url" download x-show="c.qrcode_url" class="text-blue-600 hover:text-blue-800" title="Baixar QR Code">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    </a>
+                                </div>
+                            </td>
+                            <td class="text-right" x-text="c.total_doacoes || 0"></td>
+                            <td class="text-right font-semibold text-blue-900" x-text="'R$ ' + fmt.currency(c.total_arrecadado || 0)"></td>
+                            <td>
+                                <button @click="editar(c)" class="text-primary-600 hover:text-primary-800">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <p x-show="captadores.length === 0" class="text-center text-gray-400 py-8">Nenhum captador cadastrado</p>
+        </div>
+    </div>
+
+    <!-- Modal CRUD -->
+    <div x-show="modalOpen" x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" @click.self="modalOpen = false">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4" x-text="form.id ? 'Editar Captador' : 'Novo Captador'"></h2>
+                <div x-show="erro" class="bg-red-50 text-red-700 text-sm p-3 rounded-lg mb-4" x-text="erro"></div>
+
+                <form @submit.prevent="salvar()">
+                    <!-- Busca de contato (só para novo) -->
+                    <div x-show="!form.id" class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Contato</label>
+                        <input type="text" x-model="contactSearch" @input.debounce.300ms="searchContacts()"
+                               placeholder="Buscar contato por nome ou CPF..."
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        <div x-show="contactResults.length > 0" class="mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                            <template x-for="ct in contactResults" :key="ct.id">
+                                <button type="button" @click="selectContact(ct)" class="block w-full text-left px-3 py-2 text-sm hover:bg-primary-50">
+                                    <span class="font-medium" x-text="ct.full_name"></span>
+                                    <span class="text-gray-400 ml-2" x-text="ct.cpf || ''"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <p x-show="form.contact && form.contact_name" class="mt-1 text-sm text-green-700">
+                            Selecionado: <strong x-text="form.contact_name"></strong>
+                        </p>
+                    </div>
+
+                    <!-- Tipo -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                        <select x-model="form.tipo" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="coordenador">Coordenador</option>
+                            <option value="apoiador">Apoiador</option>
+                        </select>
+                    </div>
+
+                    <!-- Coordenador (só se for apoiador) -->
+                    <div x-show="form.tipo === 'apoiador'" class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Coordenador responsável</label>
+                        <select x-model="form.coordenador" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Selecione...</option>
+                            <template x-for="coord in coordenadores" :key="coord.id">
+                                <option :value="coord.id" x-text="coord.contact_name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Botões -->
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" @click="modalOpen = false" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
+                        <button type="submit" :disabled="salvando" class="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                            <span x-show="!salvando" x-text="form.id ? 'Salvar' : 'Criar Captador'"></span>
+                            <span x-show="salvando">Salvando...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function captadoresApp() {
+    return {
+        captadores: [],
+        coordenadores: [],
+        stats: {},
+        busca: '',
+        filtroTipo: '',
+        modalOpen: false,
+        salvando: false,
+        erro: '',
+        form: { id: null, contact: null, contact_name: '', tipo: 'coordenador', coordenador: '' },
+        contactSearch: '',
+        contactResults: [],
+
+        async init() {
+            await this.load();
+            try {
+                this.stats = await API.fundraising.redeStats();
+            } catch (e) { this.stats = {}; }
+        },
+
+        async load() {
+            try {
+                let url = '/api/v1/fundraising/captadores/?ordering=-created_at';
+                if (this.busca) url += '&search=' + encodeURIComponent(this.busca);
+                if (this.filtroTipo) url += '&tipo=' + this.filtroTipo;
+                const res = await API.get(url);
+                this.captadores = res.results || res;
+                // Carregar lista de coordenadores para o select
+                const coordRes = await API.get('/api/v1/fundraising/captadores/?tipo=coordenador&is_active=true&page_size=100');
+                this.coordenadores = coordRes.results || coordRes;
+            } catch (e) {
+                console.error('Erro ao carregar captadores:', e);
+            }
+        },
+
+        novo() {
+            this.form = { id: null, contact: null, contact_name: '', tipo: 'coordenador', coordenador: '' };
+            this.contactSearch = '';
+            this.contactResults = [];
+            this.erro = '';
+            this.modalOpen = true;
+        },
+
+        editar(c) {
+            this.form = {
+                id: c.id,
+                contact: c.contact,
+                contact_name: c.contact_name,
+                tipo: c.tipo,
+                coordenador: c.coordenador || '',
+            };
+            this.erro = '';
+            this.modalOpen = true;
+        },
+
+        async searchContacts() {
+            if (this.contactSearch.length < 2) { this.contactResults = []; return; }
+            try {
+                const res = await API.get('/api/v1/contacts/?search=' + encodeURIComponent(this.contactSearch) + '&page_size=10');
+                this.contactResults = res.results || res;
+            } catch (e) { this.contactResults = []; }
+        },
+
+        selectContact(ct) {
+            this.form.contact = ct.id;
+            this.form.contact_name = ct.full_name;
+            this.contactResults = [];
+            this.contactSearch = ct.full_name;
+        },
+
+        async salvar() {
+            this.erro = '';
+            if (!this.form.id && !this.form.contact) {
+                this.erro = 'Selecione um contato';
+                return;
+            }
+            this.salvando = true;
+            try {
+                const payload = {
+                    tipo: this.form.tipo,
+                    coordenador: this.form.tipo === 'apoiador' && this.form.coordenador ? parseInt(this.form.coordenador) : null,
+                };
+                if (!this.form.id) payload.contact = this.form.contact;
+                if (this.form.id) {
+                    await API.patch(`/api/v1/fundraising/captadores/${this.form.id}/`, payload);
+                } else {
+                    await API.post('/api/v1/fundraising/captadores/', payload);
+                }
+                this.modalOpen = false;
+                await this.load();
+                await this.init();
+            } catch (e) {
+                const msgs = [];
+                if (e.data) {
+                    for (const [k, v] of Object.entries(e.data)) {
+                        msgs.push(Array.isArray(v) ? v.join(', ') : String(v));
+                    }
+                }
+                this.erro = msgs.join('. ') || 'Erro ao salvar';
+            }
+            this.salvando = false;
+        },
+
+        copiarLink(c) {
+            const url = window.location.origin + c.link;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link copiado: ' + url);
+            });
+        },
+    };
+}
+</script>
+{% endblock %}

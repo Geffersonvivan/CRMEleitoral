@@ -13,13 +13,14 @@ function regionApp(slug) {
         deputiesData: null,
         demandsData: null,
         itinerariesData: null,
+        doacoesData: null,
 
         mapaLabel() {
             const map = {
                 regioes: 'Mapa Regioes', calor: 'Mapa Calor', demandas: 'Mapa Demandas',
                 roteiros: 'Mapa Roteiros', estrategico: 'Mapa Estrategico', rede_pl: 'Mapa Rede PL',
                 zonas: 'Mapa Zonas', transferencia: 'Mapa Transferencia', deputados: 'Mapa Dep. Aliados',
-                eleicoes_2022: 'Mapa Eleicoes 2022',
+                eleicoes_2022: 'Mapa Eleicoes 2022', doacoes: 'Mapa Doações',
             };
             return map[this.mapaParam] || '';
         },
@@ -66,6 +67,8 @@ function regionApp(slug) {
                 } else if (mode === 'roteiros') {
                     const all = await API.itineraries.mapData(false);
                     this.itinerariesData = this._filterItinerariesByRegion(all);
+                } else if (mode === 'doacoes') {
+                    this.doacoesData = await API.fundraising.regionDetail(this.slug);
                 }
             } catch (e) {
                 console.error('Erro ao carregar dados do modo:', e);
@@ -295,6 +298,17 @@ function regionApp(slug) {
                 const c = this.transferData.cities.find(x => x.slug === citySlug);
                 return c ? this.transferOppColor(c.opp_class) : '#d1d5db';
             }
+            if (mode === 'doacoes' && this.doacoesData) {
+                const cidades = this.doacoesData.cidades || [];
+                const c = cidades.find(x => x.cidade_slug === citySlug);
+                const valor = c ? c.total : 0;
+                const maxVal = Math.max(...cidades.map(x => x.total), 1);
+                if (valor === 0) return '#e2e8f0';
+                return d3.scaleLinear()
+                    .domain([0, maxVal * 0.25, maxVal * 0.5, maxVal])
+                    .range(['#dbeafe', '#60a5fa', '#2563eb', '#1e3a8a'])
+                    .clamp(true)(valor);
+            }
             if (mode === 'calor') {
                 const c = (this.data.cities || []).find(x => x.slug === citySlug);
                 if (!c || !c.population) return '#d1d5db';
@@ -317,7 +331,7 @@ function regionApp(slug) {
 
         _cityStroke(citySlug) {
             const mode = this.mapaParam || 'regioes';
-            if (['estrategico', 'rede_pl', 'deputados', 'transferencia', 'calor', 'demandas'].includes(mode)) {
+            if (['estrategico', 'rede_pl', 'deputados', 'transferencia', 'calor', 'demandas', 'doacoes'].includes(mode)) {
                 return '#374151';
             }
             return '#0288d1';
@@ -356,6 +370,16 @@ function regionApp(slug) {
                 if (c) {
                     html += `<div class="tooltip-row"><span class="tooltip-label">Abertas:</span> <span class="tooltip-value">${c.open}</span></div>`;
                     html += `<div class="tooltip-row"><span class="tooltip-label">Atrasadas:</span> <span class="tooltip-value">${c.overdue}</span></div>`;
+                }
+            } else if (mode === 'doacoes' && this.doacoesData) {
+                const cidades = this.doacoesData.cidades || [];
+                const c = cidades.find(x => x.cidade_slug === props.slug);
+                if (c) {
+                    html += `<div class="tooltip-row"><span class="tooltip-label">Arrecadado:</span> <span class="tooltip-value" style="color:#1e3a8a;font-weight:bold">R$ ${fmt.currency(c.total)}</span></div>`;
+                    html += `<div class="tooltip-row"><span class="tooltip-label">Doações:</span> <span class="tooltip-value">${c.count}</span></div>`;
+                    html += `<div class="tooltip-row"><span class="tooltip-label">Doadores:</span> <span class="tooltip-value">${c.doadores}</span></div>`;
+                } else {
+                    html += `<div class="tooltip-row"><span class="tooltip-label" style="color:#9ca3af">Sem doações</span></div>`;
                 }
             } else {
                 html += `<div class="tooltip-row"><span class="tooltip-label">Pop:</span> <span class="tooltip-value">${fmt.number(props.population)}</span></div>`;

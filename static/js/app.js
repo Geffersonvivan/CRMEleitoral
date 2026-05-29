@@ -108,6 +108,14 @@ const API = {
     itineraries: {
         mapData: (showCompleted) => API.get(`/api/v1/campaigns/itineraries/map-data/?completed=${showCompleted ? 'true' : 'false'}`),
     },
+
+    fundraising: {
+        mapData: (periodo) => API.get(`/api/v1/fundraising/map/doacoes/${periodo ? '?periodo=' + periodo : ''}`),
+        regionDetail: (slug, periodo) => API.get(`/api/v1/fundraising/map/doacoes/regiao/${slug}/${periodo ? '?periodo=' + periodo : ''}`),
+        cityDetail: (slug, periodo) => API.get(`/api/v1/fundraising/map/doacoes/cidade/${slug}/${periodo ? '?periodo=' + periodo : ''}`),
+        captadores: () => API.get('/api/v1/fundraising/captadores/'),
+        redeStats: () => API.get('/api/v1/fundraising/rede/stats/'),
+    },
 };
 
 // Countdown eleições 2026 — 1º turno 04/10/2026 19:00 BRT
@@ -138,4 +146,5 @@ function countdown() {
 const fmt = {
     number: (n) => (n || 0).toLocaleString('pt-BR'),
     percent: (n) => (n || 0).toFixed(1) + '%',
+    currency: (n) => (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
 };

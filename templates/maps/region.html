@@ -92,6 +92,17 @@
                 <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#d1d5db"></span> Sem demandas</span>
             </div>
         </template>
+        <template x-if="mapIs('doacoes')">
+            <div class="flex flex-wrap items-center gap-3 mt-3 text-xs">
+                <span class="font-semibold text-gray-700">Volume de Doações</span>
+                <span class="flex items-center gap-1">
+                    <span class="text-xs text-gray-500">R$ 0</span>
+                    <span class="w-32 h-3 rounded inline-block" style="background: linear-gradient(to right, #dbeafe, #60a5fa, #2563eb, #1e3a8a)"></span>
+                    <span class="text-xs text-gray-500">Máx</span>
+                </span>
+                <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#e2e8f0"></span> Sem doações</span>
+            </div>
+        </template>
     </div>
 
     <!-- ==================== CARDS POR MODO ==================== -->
@@ -226,6 +237,123 @@
                 <div class="text-sm text-gray-500" x-text="zonePerfLabel(perf)"></div>
             </div>
         </template>
+    </div>
+
+    <!-- Cards: Doações -->
+    <div x-show="mapIs('doacoes') && doacoesData" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-md p-4 stat-card border-l-4 border-blue-900">
+            <div class="text-2xl font-bold text-blue-900" x-text="'R$ ' + fmt.currency(doacoesData?.totals?.total || 0)"></div>
+            <div class="text-sm text-gray-500">Total Arrecadado</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 stat-card border-l-4 border-blue-600">
+            <div class="text-2xl font-bold text-blue-600" x-text="doacoesData?.totals?.count || 0"></div>
+            <div class="text-sm text-gray-500">Doações</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 stat-card border-l-4 border-blue-400">
+            <div class="text-2xl font-bold text-blue-400" x-text="doacoesData?.totals?.doadores || 0"></div>
+            <div class="text-sm text-gray-500">Doadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4 stat-card border-l-4 border-blue-300">
+            <div class="text-2xl font-bold text-blue-300" x-text="'R$ ' + fmt.currency(doacoesData?.totals?.media || 0)"></div>
+            <div class="text-sm text-gray-500">Doação Média</div>
+        </div>
+    </div>
+
+    <!-- Tabela: Coordenadores e Apoiadores (Doações) -->
+    <div x-show="mapIs('doacoes') && doacoesData && (doacoesData.coordenadores || []).length > 0" class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <h3 class="text-lg font-semibold mb-4">Coordenadores da Região</h3>
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Coordenador</th>
+                        <th>Cidade</th>
+                        <th class="text-right">Apoiadores</th>
+                        <th class="text-right">Doações</th>
+                        <th class="text-right">Arrecadado</th>
+                        <th class="text-right">% do Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(coord, idx) in doacoesData.coordenadores || []" :key="coord.id">
+                        <tr>
+                            <td x-text="idx + 1" class="text-gray-400 font-mono"></td>
+                            <td class="font-medium" x-text="coord.nome"></td>
+                            <td class="text-gray-500" x-text="coord.cidade"></td>
+                            <td class="text-right" x-text="coord.apoiadores_count"></td>
+                            <td class="text-right" x-text="coord.count"></td>
+                            <td class="text-right font-semibold text-blue-900" x-text="'R$ ' + fmt.currency(coord.total)"></td>
+                            <td class="text-right text-gray-500" x-text="doacoesData.totals.total > 0 ? (coord.total / doacoesData.totals.total * 100).toFixed(1) + '%' : '0%'"></td>
+                            <td>
+                                <button @click="coord._expanded = !coord._expanded" class="text-primary-600 hover:text-primary-800 text-sm">
+                                    <span x-text="coord._expanded ? '▲ Fechar' : '▼ Apoiadores'"></span>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+
+            <!-- Apoiadores expandidos (renderizados abaixo da tabela por coordenador) -->
+            <template x-for="coord in (doacoesData.coordenadores || []).filter(c => c._expanded)" :key="'ap-' + coord.id">
+                <div class="mt-2 ml-4 p-3 bg-blue-50 rounded-lg">
+                    <p class="text-sm font-semibold text-gray-700 mb-2" x-text="'Apoiadores de ' + coord.nome"></p>
+                    <div class="overflow-x-auto">
+                        <table class="data-table text-sm">
+                            <thead>
+                                <tr>
+                                    <th>Apoiador</th>
+                                    <th>Cidade</th>
+                                    <th class="text-right">Doações</th>
+                                    <th class="text-right">Arrecadado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="ap in coord.apoiadores || []" :key="ap.id">
+                                    <tr>
+                                        <td class="font-medium" x-text="ap.nome"></td>
+                                        <td class="text-gray-500" x-text="ap.cidade"></td>
+                                        <td class="text-right" x-text="ap.count"></td>
+                                        <td class="text-right font-semibold text-blue-800" x-text="'R$ ' + fmt.currency(ap.total)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Tabela: Cidades com Doações -->
+    <div x-show="mapIs('doacoes') && doacoesData && (doacoesData.cidades || []).length > 0" class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <h3 class="text-lg font-semibold mb-4">Doações por Cidade</h3>
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Cidade</th>
+                        <th class="text-right">Doadores</th>
+                        <th class="text-right">Doações</th>
+                        <th class="text-right">Arrecadado</th>
+                        <th class="text-right">Captadores</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in doacoesData.cidades || []" :key="c.cidade_slug">
+                        <tr class="clickable" @click="window.location.href='/cidade/' + c.cidade_slug + '/?mapa=doacoes'">
+                            <td class="font-medium" x-text="c.cidade_nome"></td>
+                            <td class="text-right" x-text="c.doadores"></td>
+                            <td class="text-right" x-text="c.count"></td>
+                            <td class="text-right font-semibold text-blue-900" x-text="'R$ ' + fmt.currency(c.total)"></td>
+                            <td class="text-right" x-text="c.captadores"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- ==================== TABELAS POR MODO ==================== -->

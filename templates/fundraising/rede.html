@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rede de Doações{% endblock %}
+
+{% block content %}
+<div x-data="redeApp()" x-init="init()">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Visao da Rede</h1>
+            <p class="text-sm text-gray-500">Hierarquia de coordenadores, apoiadores e doacoes</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/doacoes/" class="text-sm bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
+                Gestao de Captadores
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-primary-900" x-text="stats.coordenadores || 0"></div>
+            <div class="text-sm text-gray-500">Coordenadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-blue-600" x-text="stats.apoiadores || 0"></div>
+            <div class="text-sm text-gray-500">Apoiadores</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-green-600" x-text="'R$ ' + fmt.currency(stats.total_arrecadado || 0)"></div>
+            <div class="text-sm text-gray-500">Total Arrecadado</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-orange-600" x-text="stats.total_doacoes || 0"></div>
+            <div class="text-sm text-gray-500">Doacoes</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-md p-4">
+            <div class="text-2xl font-bold text-purple-600" x-text="stats.total_doadores || 0"></div>
+            <div class="text-sm text-gray-500">Doadores</div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-4">
+        <div class="flex flex-col md:flex-row gap-3">
+            <input type="text" x-model="busca" @input.debounce.300ms="filtrar()" placeholder="Buscar coordenador ou apoiador..."
+                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            <select x-model="filtroRegiao" @change="filtrar()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="">Todas as regioes</option>
+                <template x-for="r in regioes" :key="r">
+                    <option :value="r" x-text="r"></option>
+                </template>
+            </select>
+        </div>
+    </div>
+
+    <!-- Arvore da Rede -->
+    <div class="space-y-4">
+        <template x-for="coord in coordenadoresFiltrados" :key="coord.id">
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <!-- Coordenador -->
+                <div class="p-4 cursor-pointer hover:bg-gray-50 flex items-center gap-4" @click="coord._expanded = !coord._expanded">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm"
+                             x-text="coord.contact_name ? coord.contact_name.charAt(0).toUpperCase() : '?'"></div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-gray-800" x-text="coord.contact_name"></div>
+                        <div class="text-xs text-gray-500 flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 font-medium">Coordenador</span>
+                            <span x-text="coord.contact_region || ''"></span>
+                        </div>
+                    </div>
+                    <div class="hidden md:flex items-center gap-6 text-sm text-gray-600">
+                        <div class="text-center">
+                            <div class="font-bold text-blue-600" x-text="coord._apoiadores ? coord._apoiadores.length : 0"></div>
+                            <div class="text-xs text-gray-400">Apoiadores</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-green-600" x-text="coord.total_doacoes || 0"></div>
+                            <div class="text-xs text-gray-400">Doacoes</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-bold text-primary-900" x-text="'R$ ' + fmt.currency(coord.total_arrecadado || 0)"></div>
+                            <div class="text-xs text-gray-400">Arrecadado</div>
+                        </div>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400 transition-transform" :class="coord._expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </div>
+
+                <!-- Stats mobile -->
+                <div class="md:hidden px-4 pb-2 flex gap-4 text-xs text-gray-500">
+                    <span><strong class="text-blue-600" x-text="coord._apoiadores ? coord._apoiadores.length : 0"></strong> apoiadores</span>
+                    <span><strong class="text-green-600" x-text="coord.total_doacoes || 0"></strong> doacoes</span>
+                    <span><strong class="text-primary-900" x-text="'R$ ' + fmt.currency(coord.total_arrecadado || 0)"></strong></span>
+                </div>
+
+                <!-- Apoiadores (expandido) -->
+                <div x-show="coord._expanded" x-transition class="border-t border-gray-100">
+                    <template x-if="coord._apoiadores && coord._apoiadores.length > 0">
+                        <div class="divide-y divide-gray-50">
+                            <template x-for="ap in coord._apoiadores" :key="ap.id">
+                                <div class="px-4 py-3 pl-14 flex items-center gap-4 hover:bg-blue-50/50">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold"
+                                             x-text="ap.contact_name ? ap.contact_name.charAt(0).toUpperCase() : '?'"></div>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm font-medium text-gray-700" x-text="ap.contact_name"></div>
+                                        <div class="text-xs text-gray-400" x-text="ap.contact_region || ''"></div>
+                                    </div>
+                                    <div class="flex items-center gap-4 text-sm">
+                                        <div class="text-center hidden md:block">
+                                            <div class="font-semibold text-green-600" x-text="ap.total_doacoes || 0"></div>
+                                            <div class="text-xs text-gray-400">Doacoes</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="font-semibold text-primary-900" x-text="'R$ ' + fmt.currency(ap.total_arrecadado || 0)"></div>
+                                            <div class="text-xs text-gray-400">Arrecadado</div>
+                                        </div>
+                                        <div>
+                                            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" x-text="ap.slug"></code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="!coord._apoiadores || coord._apoiadores.length === 0">
+                        <p class="text-center text-gray-400 text-sm py-4">Nenhum apoiador vinculado</p>
+                    </template>
+                </div>
+            </div>
+        </template>
+        <p x-show="coordenadoresFiltrados.length === 0" class="text-center text-gray-400 py-8">Nenhum coordenador encontrado</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function redeApp() {
+    return {
+        stats: {},
+        captadores: [],
+        regioes: [],
+        busca: '',
+        filtroRegiao: '',
+
+        async init() {
+            try {
+                const [statsRes, captRes] = await Promise.all([
+                    API.fundraising.redeStats(),
+                    API.get('/api/v1/fundraising/captadores/?ordering=-total_arrecadado&page_size=500&is_active=true'),
+                ]);
+                this.stats = statsRes;
+                this.captadores = (captRes.results || captRes).map(c => ({ ...c, _expanded: false }));
+
+                // Extrair regioes unicas
+                const regs = new Set();
+                this.captadores.forEach(c => { if (c.contact_region) regs.add(c.contact_region); });
+                this.regioes = [...regs].sort();
+            } catch (e) {
+                console.error('Erro ao carregar rede:', e);
+            }
+        },
+
+        get coordenadoresFiltrados() {
+            const coords = this.captadores.filter(c => c.tipo === 'coordenador');
+            const apoiadores = this.captadores.filter(c => c.tipo === 'apoiador');
+
+            let filtered = coords.map(coord => ({
+                ...coord,
+                _apoiadores: apoiadores.filter(a => a.coordenador === coord.id),
+            }));
+
+            if (this.busca) {
+                const term = this.busca.toLowerCase();
+                filtered = filtered.filter(coord => {
+                    const nameMatch = coord.contact_name && coord.contact_name.toLowerCase().includes(term);
+                    const apMatch = coord._apoiadores.some(a => a.contact_name && a.contact_name.toLowerCase().includes(term));
+                    return nameMatch || apMatch;
+                });
+            }
+
+            if (this.filtroRegiao) {
+                filtered = filtered.filter(coord => {
+                    const regionMatch = coord.contact_region === this.filtroRegiao;
+                    const apMatch = coord._apoiadores.some(a => a.contact_region === this.filtroRegiao);
+                    return regionMatch || apMatch;
+                });
+            }
+
+            return filtered;
+        },
+    };
+}
+</script>
+{% endblock %}

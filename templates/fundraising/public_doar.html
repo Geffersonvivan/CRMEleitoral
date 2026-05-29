@@ -1,0 +1,262 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#002776">
+    <title>Doar | Sorgatto 26</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#e6edf8', 100: '#b3c9ea', 200: '#80a5dc', 300: '#4d81ce', 400: '#265ebf', 500: '#003DA5', 600: '#0046b8', 700: '#003a9a', 800: '#002e7d', 900: '#002776' },
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<div x-data="doacaoApp()" x-init="init()" class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <div class="bg-primary-900 text-white py-6 px-4 text-center">
+        <div class="max-w-md mx-auto">
+            <div x-show="captador.foto_url" class="mb-3">
+                <img :src="captador.foto_url" class="w-16 h-16 rounded-full mx-auto border-2 border-white/30 object-cover" alt="">
+            </div>
+            <h1 class="text-xl font-bold">Doacao Eleitoral</h1>
+            <p class="text-primary-200 text-sm mt-1">Sorgatto 26</p>
+            <p x-show="captador.nome" class="mt-2 text-sm text-primary-100">
+                Voce esta doando via <strong class="text-white" x-text="captador.nome"></strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="flex-1 flex items-start justify-center px-4 py-8" x-show="!sucesso">
+        <div class="w-full max-w-md">
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-1">Faca sua doacao</h2>
+                <p class="text-sm text-gray-500 mb-6">Preencha seus dados para registrar a doacao eleitoral via CPF.</p>
+
+                <div x-show="erro" class="bg-red-50 text-red-700 text-sm p-3 rounded-lg mb-4" x-text="erro"></div>
+
+                <form @submit.prevent="enviar()">
+                    <!-- CPF -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                        <input type="text" x-model="form.cpf" @input="mascaraCpf()" maxlength="14"
+                               placeholder="000.000.000-00" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        <p x-show="form.cpf.length === 14 && !validarCpf(form.cpf)" class="text-red-500 text-xs mt-1">CPF invalido</p>
+                    </div>
+
+                    <!-- Nome -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome completo</label>
+                        <input type="text" x-model="form.nome" required placeholder="Seu nome completo"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+
+                    <!-- Telefone -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Telefone <span class="text-gray-400">(opcional)</span></label>
+                        <input type="tel" x-model="form.telefone" @input="mascaraTel()" maxlength="15"
+                               placeholder="(00) 00000-0000"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+
+                    <!-- Valor -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Valor da doacao</label>
+                        <div class="grid grid-cols-4 gap-2 mb-3">
+                            <button type="button" @click="form.valor = 50; valorCustom = ''"
+                                    :class="form.valor === 50 && !valorCustom ? 'bg-primary-600 text-white ring-2 ring-primary-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                    class="py-3 rounded-lg font-semibold text-sm transition-colors">
+                                R$ 50
+                            </button>
+                            <button type="button" @click="form.valor = 100; valorCustom = ''"
+                                    :class="form.valor === 100 && !valorCustom ? 'bg-primary-600 text-white ring-2 ring-primary-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                    class="py-3 rounded-lg font-semibold text-sm transition-colors">
+                                R$ 100
+                            </button>
+                            <button type="button" @click="form.valor = 200; valorCustom = ''"
+                                    :class="form.valor === 200 && !valorCustom ? 'bg-primary-600 text-white ring-2 ring-primary-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                    class="py-3 rounded-lg font-semibold text-sm transition-colors">
+                                R$ 200
+                            </button>
+                            <button type="button" @click="form.valor = 500; valorCustom = ''"
+                                    :class="form.valor === 500 && !valorCustom ? 'bg-primary-600 text-white ring-2 ring-primary-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                                    class="py-3 rounded-lg font-semibold text-sm transition-colors">
+                                R$ 500
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
+                            <input type="text" x-model="valorCustom" @input="onValorCustom()" inputmode="decimal"
+                                   placeholder="Outro valor"
+                                   class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" :disabled="enviando || !formValido()"
+                            class="w-full py-3.5 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base">
+                        <span x-show="!enviando">Confirmar Doacao</span>
+                        <span x-show="enviando" class="flex items-center justify-center gap-2">
+                            <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            Enviando...
+                        </span>
+                    </button>
+                </form>
+            </div>
+
+            <p class="text-center text-xs text-gray-400 mt-4">
+                Doacao eleitoral registrada conforme legislacao vigente.
+            </p>
+        </div>
+    </div>
+
+    <!-- Sucesso -->
+    <div x-show="sucesso" x-transition class="flex-1 flex items-start justify-center px-4 py-8">
+        <div class="w-full max-w-md">
+            <div class="bg-white rounded-2xl shadow-lg p-6 text-center">
+                <div class="w-16 h-16 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800 mb-2">Doacao registrada!</h2>
+                <p class="text-gray-500 mb-6">Obrigado pela sua contribuicao.</p>
+
+                <div class="bg-gray-50 rounded-lg p-4 text-left space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Valor:</span>
+                        <span class="font-semibold text-gray-800" x-text="'R$ ' + parseFloat(resultado.valor || 0).toFixed(2).replace('.', ',')"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Status:</span>
+                        <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">Pendente</span>
+                    </div>
+                </div>
+
+                <button @click="resetar()" class="mt-6 w-full py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors">
+                    Fazer nova doacao
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function doacaoApp() {
+    const slug = '{{ slug }}';
+    return {
+        captador: { nome: '', tipo: '', foto_url: '' },
+        form: { cpf: '', nome: '', telefone: '', valor: 100 },
+        valorCustom: '',
+        enviando: false,
+        erro: '',
+        sucesso: false,
+        resultado: {},
+
+        async init() {
+            try {
+                const res = await fetch(`/api/v1/fundraising/public/doar/${slug}/`);
+                if (res.ok) this.captador = await res.json();
+            } catch (e) {}
+        },
+
+        mascaraCpf() {
+            let v = this.form.cpf.replace(/\D/g, '').slice(0, 11);
+            if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+            else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+            else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+            this.form.cpf = v;
+        },
+
+        mascaraTel() {
+            let v = this.form.telefone.replace(/\D/g, '').slice(0, 11);
+            if (v.length > 6) v = v.replace(/(\d{2})(\d{5})(\d{1,4})/, '($1) $2-$3');
+            else if (v.length > 2) v = v.replace(/(\d{2})(\d{1,5})/, '($1) $2');
+            this.form.telefone = v;
+        },
+
+        validarCpf(cpf) {
+            const nums = cpf.replace(/\D/g, '');
+            if (nums.length !== 11) return false;
+            if (/^(\d)\1{10}$/.test(nums)) return false;
+            let soma = 0;
+            for (let i = 0; i < 9; i++) soma += parseInt(nums[i]) * (10 - i);
+            let resto = (soma * 10) % 11;
+            if (resto === 10) resto = 0;
+            if (resto !== parseInt(nums[9])) return false;
+            soma = 0;
+            for (let i = 0; i < 10; i++) soma += parseInt(nums[i]) * (11 - i);
+            resto = (soma * 10) % 11;
+            if (resto === 10) resto = 0;
+            return resto === parseInt(nums[10]);
+        },
+
+        onValorCustom() {
+            this.valorCustom = this.valorCustom.replace(/[^\d,\.]/g, '');
+            if (this.valorCustom) {
+                const val = parseFloat(this.valorCustom.replace(',', '.'));
+                if (!isNaN(val) && val > 0) this.form.valor = val;
+            }
+        },
+
+        formValido() {
+            return this.form.cpf.length === 14 && this.validarCpf(this.form.cpf)
+                && this.form.nome.trim().length >= 3
+                && this.form.valor > 0;
+        },
+
+        async enviar() {
+            this.erro = '';
+            if (!this.formValido()) return;
+            this.enviando = true;
+            try {
+                const payload = {
+                    cpf: this.form.cpf.replace(/\D/g, ''),
+                    nome: this.form.nome.trim(),
+                    telefone: this.form.telefone.replace(/\D/g, ''),
+                    valor: this.form.valor,
+                };
+                const res = await fetch(`/api/v1/fundraising/public/doar/${slug}/submit/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    const msgs = [];
+                    for (const [k, v] of Object.entries(err)) {
+                        msgs.push(Array.isArray(v) ? v.join(', ') : String(v));
+                    }
+                    throw new Error(msgs.join('. ') || 'Erro ao enviar doacao');
+                }
+                this.resultado = await res.json();
+                this.sucesso = true;
+            } catch (e) {
+                this.erro = e.message || 'Erro ao enviar doacao';
+            }
+            this.enviando = false;
+        },
+
+        resetar() {
+            this.form = { cpf: '', nome: '', telefone: '', valor: 100 };
+            this.valorCustom = '';
+            this.sucesso = false;
+            this.resultado = {};
+            this.erro = '';
+        },
+    };
+}
+</script>
+
+</body>
+</html>
